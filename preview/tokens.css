@@ -1,0 +1,134 @@
+/* =============================================================================
+ * dsh-theme-starfield — palette tokens
+ * -----------------------------------------------------------------------------
+ * Two surfaces, both taken from the game rather than invented:
+ *
+ *   DARK  — the star map: near-black deep blue, crisp ivory dots, cyan route
+ *           lines, plus-mark grid, and light "stencil plate" panel headers.
+ *   LIGHT — the dataslate: matte gray-lavender paper, slate ink, mid-gray tab
+ *           bars, sage key. Not white, not a "light mode of the dark one".
+ *
+ * `tools/mockup.py` parses these declarations, so the rendered studies cannot
+ * drift from the live preview.
+ *
+ * Type: Bahnschrift (DIN-flavoured, ships with Windows) for chrome and labels —
+ * the closest system match to the game's condensed instrument lettering. Body
+ * prose stays on the system UI face for readability; data uses Cascadia Mono.
+ * ========================================================================== */
+
+:root {
+  /* -- surfaces ----------------------------------------------------------- */
+  --sf-void:        #080B10;  /* the map itself                            */
+  --sf-hull-sunken: #0B0F16;  /* wells: composer, code, inputs             */
+  --sf-hull:        #10151E;  /* rail, panels                              */
+  --sf-hull-raised: #161C26;  /* raised plates, user bubble                */
+  --sf-hull-high:   #1E2531;  /* hover / pressed                           */
+
+  /* -- stencil plate: the solid light header bar on every panel ----------- */
+  --sf-bar:         #C7CBD1;
+  --sf-bar-ink:     #191D24;
+  --sf-bar-dim:     #939AA4;
+  --sf-bar-dim-ink: #10141A;
+
+  /* -- hairlines ---------------------------------------------------------- */
+  --sf-line:        rgba(226, 232, 240, 0.10);
+  --sf-line-strong: rgba(226, 232, 240, 0.20);
+
+  /* -- ink ---------------------------------------------------------------- */
+  --sf-ink:         #E9EDF2;
+  --sf-ink-2:       #A8B0BA;
+  --sf-ink-3:       #6B747F;
+  --sf-ink-inverse: #0D1117;
+
+  /* -- primary action: a light block with dark text, like JUMP ----------- */
+  --sf-action:      #E4E8EC;
+  --sf-action-ink:  #10141A;
+
+  /* -- signal ------------------------------------------------------------- */
+  --sf-route:   #3FC9DE;  /* cyan: routes, selection, focus                */
+  --sf-accent:  #EE9A2C;  /* orange: metrics, fuel, warnings               */
+  --sf-ok:      #67D14A;  /* green: level / online                         */
+  --sf-alert:   #E0564B;
+
+  /* -- data cells --------------------------------------------------------- */
+  --sf-cell-key: rgba(226, 232, 240, 0.12);
+  --sf-cell-val: rgba(3, 6, 10, 0.34);
+  --sf-cell-alt: rgba(226, 232, 240, 0.03);
+
+  /* -- atmosphere --------------------------------------------------------- */
+  --sf-star:     #EAEEF4;
+  --sf-grid:     rgba(226, 232, 240, 0.075);
+  --sf-vignette: rgba(2, 4, 7, 0.62);
+  --sf-paper-1:  #0A0E15;
+  --sf-paper-2:  #070A10;
+
+  /* -- livery: the game's five-colour equipment stripe --------------------- */
+  /* Identity, not state. Kept out of the semantic layer on purpose: orange and
+     red already mean "metric" and "alert" here, so reusing them as decoration
+     would dilute two signals. */
+  --sf-livery-1: #D4AC63;  /* brass          */
+  --sf-livery-2: #CD2435;  /* signal red     */
+  --sf-livery-3: #E56335;  /* hazard orange  */
+  --sf-livery-4: #2B4D7D;  /* navy           */
+  --sf-livery-5: #F4F5F7;  /* chalk          */
+
+  /* DeepSeek brand blue — deliberately not one of the five. The whale is an
+     icon, not a marking, so it keeps the logo's own colour. */
+  --sf-brand-blue: #4D6BFE;
+
+  /* -- type --------------------------------------------------------------- */
+  --sf-font-display: Bahnschrift, "DIN Alternate", "Segoe UI", system-ui, sans-serif;
+  --sf-font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --sf-font-mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
+  --sf-tracking-label: 0.17em;
+  --sf-stretch: 88%;
+}
+
+/* =============================================================================
+ * Dataslate — light variant.
+ * Paper is gray-lavender, not white; ink is slate, not black; the "space" of
+ * the dark theme becomes the paper's own fibre and faint printed marks.
+ * ========================================================================== */
+
+[data-sf-mode="light"] {
+  --sf-void:        #C7C8D3;
+  --sf-hull-sunken: #BCBCC8;
+  --sf-hull:        #C2C2CE;
+  --sf-hull-raised: #D4D4DD;
+  --sf-hull-high:   #DEDEE5;
+
+  --sf-bar:         #747879;
+  /* Pure white, not near-white: on #747879 the label lands at ~4.4:1, and
+     these are 9.5px tracked capitals where every point of contrast counts. */
+  --sf-bar-ink:     #FFFFFF;
+  /* Secondary plates sit *below* the primary bar, as the dataslate's inactive
+     tab does — so this has to stay darker than --sf-bar, not lighter. */
+  --sf-bar-dim:     #5D6162;
+  --sf-bar-dim-ink: #F2F3F4;
+
+  --sf-line:        rgba(52, 58, 68, 0.26);
+  --sf-line-strong: rgba(52, 58, 68, 0.42);
+
+  --sf-ink:         #363B43;
+  --sf-ink-2:       #4E5560;
+  --sf-ink-3:       #6E767F;
+  --sf-ink-inverse: #EDEDF1;
+
+  --sf-action:      #363B43;
+  --sf-action-ink:  #EFEFF3;
+
+  --sf-route:  #267F91;
+  --sf-accent: #B4681A;
+  --sf-ok:     #4A7A36;
+  --sf-alert:  #A8443C;
+
+  --sf-cell-key: rgba(52, 58, 68, 0.10);
+  --sf-cell-val: rgba(52, 58, 68, 0.04);
+  --sf-cell-alt: rgba(255, 255, 255, 0.06);
+
+  --sf-star:     #4A5158;
+  --sf-grid:     rgba(52, 58, 68, 0.16);
+  --sf-vignette: rgba(74, 78, 90, 0.26);
+  --sf-paper-1:  #C7C8D3;
+  --sf-paper-2:  #B1B3C1;
+}

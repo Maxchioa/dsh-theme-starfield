@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Boot swipe</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  /* ===========================================================================
+   * Boot livery swipe
+   * ---------------------------------------------------------------------------
+   * One sheared band of the game's five colours crosses the screen once and the
+   * boot plate fades out behind it. The band is the reveal: nothing is left on
+   * screen afterwards.
+   *
+   * Two properties matter for how it reads:
+   *   - STRIP WIDTHS ARE ALLOCATED, NOT EVEN. Each colour gets a random share
+   *     within [MIN_SHARE, MAX_SHARE], normalised to the band, with a floor so
+   *     no strip can collapse to a sliver. Equal fifths read as a logo template;
+   *     uneven strips read as paint.
+   *   - IT IS SLOW ENOUGH TO SEE. A 680ms crossing was gone before the eye
+   *     registered the colours; ~1.3s lets each strip be read, and the plate
+   *     fade overlaps the tail so the total stays under 1.8s.
+   *
+   * ?seed=<n>   reproduces one exact layout (the stills use this).
+   * ?still=<ms> computes that instant of the timeline.
+   * ========================================================================= */
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--sf-paper-1);
+    color: var(--sf-ink);
+    font-family: "Segoe UI", system-ui, sans-serif;
+    overflow: hidden;
+  }
+
+  .app {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(circle at 62% 18%, rgba(63, 201, 222, 0.06), transparent 46%),
+      linear-gradient(180deg, var(--sf-paper-2), var(--sf-paper-1));
+  }
+  .app__text {
+    font-family: var(--sf-font-display);
+    font-stretch: 88%;
+    font-size: 11px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--sf-ink-3);
+  }
+
+  .boot {
+    position: fixed;
+    inset: 0;
+    z-index: 10;
+    background: #070a10;
+    display: grid;
+    place-items: center;
+    animation: boot-out 420ms ease-out 1400ms forwards;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .boot__mark {
+    width: 46px;
+    height: auto;
+    color: #4d6bfe;
+    opacity: 0;
+    /* behind the band: the wipe reveals the mark as it leaves, instead of
+       painting colours over the whale */
+    z-index: 1;
+    animation: mark-in 450ms ease-out 350ms forwards;
+  }
+
+  /* the band: five strips, sheared together, crossing once */
+  .wipe {
+    position: absolute;
+    top: -16vh;
+    bottom: -16vh;
+    left: 0;
+    display: flex;
+    z-index: 2; /* over the mark */
+    /* fallbacks matter: these are set from script, and an unset var would make
+       the transform invalid and flash the band at the left edge */
+    transform: translateX(var(--from, -180vw)) skewX(var(--skew, -14deg));
+    animation: sweep 1400ms cubic-bezier(0.4, 0, 0.2, 1) 80ms both;
+    will-change: transform;
+  }
+
+  .wipe i { flex: 0 0 auto; height: 100%; }
+
+  .wipe i:nth-child(1) { background: var(--sf-livery-1); }
+  .wipe i:nth-child(2) { background: var(--sf-livery-2); }
+  .wipe i:nth-child(3) { background: var(--sf-livery-3); }
+  .wipe i:nth-child(4) { background: var(--sf-livery-4); }
+  /* chalk needs a dark ground, which boot has and the brand plate does not */
+  .wipe i:nth-child(5) { background: var(--sf-livery-5); }
+
+  @keyframes sweep {
+    from { transform: translateX(var(--from, -180vw)) skewX(var(--skew, -14deg)); }
+    to   { transform: translateX(var(--to, 150vw)) skewX(var(--skew, -14deg)); }
+  }
+
+  @keyframes boot-out {
+    to { opacity: 0; visibility: hidden; }
+  }
+
+  @keyframes mark-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* freeze support: animations are cancelled and the frame computed directly */
+  .still .boot,
+  .still .boot__mark,
+  .still .wipe { animation: none !important; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wipe { display: none; }
+    .boot { animation-delay: 0ms; }
+    .boot__mark { opacity: 1; animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="app__text">app ready</div>
+</div>
+
+<div class="boot">
+  <div class="wipe" id="wipe" aria-hidden="true">
+    <i></i><i></i><i></i><i></i><i></i>
+  </div>
+  <svg class="boot__mark" viewBox="0 0 23.16 17.04" fill="none" aria-hidden="true">
+    <path id="fish" d="" fill="currentColor" />
+  </svg>
+</div>
+
+<script src="brand-paths.js"></script>
+<script>
+  (function () {
+    var fish = document.getElementById("fish");
+    if (window.BRAND_PATHS) fish.setAttribute("d", window.BRAND_PATHS.fish);
+
+    var params = new URLSearchParams(location.search);
+
+    /* --- layout: strip widths are allocated, within bounds ------------------
+       Bounds are shares of the band, not pixels, so the rule survives any
+       viewport. The floor keeps the narrowest colour readable; the cap stops one
+       colour from becoming a wall. */
+    var BAND_MIN_VW = 56, BAND_MAX_VW = 72;
+    var SHARE_MIN = 0.70, SHARE_MAX = 1.40;   // per-colour weight before norm
+    var FLOOR_SHARE = 0.12, CEIL_SHARE = 0.31; // after normalisation -> max ~2.6:1
+
+    var seed = params.get("seed");
+    seed = seed === null ? (Math.random() * 0xffffffff) >>> 0 : (Number(seed) >>> 0);
+
+    function mulberry32(a) {
+      return function () {
+        a = (a + 0x6d2b79f5) >>> 0;
+        var t = a;
+        t = Math.imul(t ^ (t >>> 15), t | 1);
+        t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    var rnd = mulberry32(seed);
+
+    var weights = [];
+    for (var i = 0; i < 5; i += 1) weights.push(SHARE_MIN + rnd() * (SHARE_MAX - SHARE_MIN));
+    var sum = weights.reduce(function (a, b) { return a + b; }, 0);
+
+    var shares = weights.map(function (w) { return w / sum; });
+    // Clamp, then renormalise so the band still fills its width exactly.
+    shares = shares.map(function (s) {
+      return Math.min(CEIL_SHARE, Math.max(FLOOR_SHARE, s));
+    });
+    var total = shares.reduce(function (a, b) { return a + b; }, 0);
+    shares = shares.map(function (s) { return s / total; });
+
+    var bandVw = BAND_MIN_VW + rnd() * (BAND_MAX_VW - BAND_MIN_VW);
+    var skew = -(11 + rnd() * 6); // -11° … -17°, per load
+
+    var wipe = document.getElementById("wipe");
+    var bars = wipe.children;
+    for (var b = 0; b < bars.length; b += 1) {
+      bars[b].style.width = (shares[b] * bandVw).toFixed(3) + "vw";
+    }
+
+    // Travel far enough that the sheared band is fully off both edges.
+    var from = -(bandVw + 26);
+    var to = 112 + 26;
+    wipe.style.setProperty("--from", from + "vw");
+    wipe.style.setProperty("--to", to + "vw");
+    wipe.style.setProperty("--skew", "skewX(" + skew.toFixed(2) + "deg)");
+
+    /* --- stills ------------------------------------------------------------ */
+    var still = params.get("still");
+    if (still === null) return;
+
+    var t = Number(still);
+    document.documentElement.classList.add("still");
+    var clamp01 = function (v) { return Math.min(1, Math.max(0, v)); };
+    var smooth = function (p) { return p * p * (3 - 2 * p); };
+
+    // 80ms → 1480ms: the band crosses (1.4s — long enough to read the colours).
+    var p = clamp01((t - 80) / 1400);
+    var x = from + (to - from) * smooth(p);
+    wipe.style.transform = "translateX(" + x.toFixed(2) + "vw) skewX(" + skew.toFixed(2) + "deg)";
+
+    // 350ms → 800ms: the mark, behind the band.
+    var m = clamp01((t - 350) / 450);
+    var mark = document.querySelector(".boot__mark");
+    mark.style.opacity = m.toFixed(3);
+    mark.style.transform = "translateY(" + (4 * (1 - m)).toFixed(2) + "px)";
+
+    // 1400ms → 1820ms: the plate.
+    var f = clamp01((t - 1400) / 420);
+    var boot = document.querySelector(".boot");
+    boot.style.opacity = (1 - f).toFixed(3);
+    if (f >= 1) boot.style.visibility = "hidden";
+  })();
+</script>
+</body>
+</html>

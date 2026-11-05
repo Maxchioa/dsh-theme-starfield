@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Starfield — star map / dataslate preview</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="tokens.css" />
+<link rel="stylesheet" href="preview.css" />
+</head>
+<body>
+
+<!-- atmosphere ------------------------------------------------------------ -->
+<div class="sf-field" aria-hidden="true">
+  <div class="sf-sky"></div>
+  <canvas id="sf-canvas"></canvas>
+  <div class="sf-vignette"></div>
+  <div class="sf-bezel"></div>
+</div>
+
+<!-- shell ----------------------------------------------------------------- -->
+<div class="sf-app">
+
+  <header class="sf-topbar">
+    <div class="sf-brand">
+      <!-- Livery flag: four vertical bars, flush to the plate's leading edge.
+           Not a bar under the wordmark — that reads as a logo gradient; a flag
+           at the plate edge reads as a colour-code marking on hardware. -->
+      <span class="sf-brand__flag" aria-hidden="true">
+        <i style="background: var(--sf-livery-1)"></i>
+        <i style="background: var(--sf-livery-2)"></i>
+        <i style="background: var(--sf-livery-3)"></i>
+        <i style="background: var(--sf-livery-4)"></i>
+      </span>
+      <!-- Real DeepSeek Harness artwork, injected from brand-paths.js: the whale
+           keeps brand blue, the wordmark takes the plate ink. -->
+      <span class="sf-brand__mark" id="sf-mark" aria-hidden="true"></span>
+      <span class="sf-brand__word" id="sf-word" aria-hidden="true"></span>
+    </div>
+    <div class="sf-topbar__meta">
+      <span>ORBIT <b>001</b></span>
+      <span>SOL <b>4.2 AU</b></span>
+      <span>SES <b>0042</b></span>
+    </div>
+    <button class="sf-mode" id="sf-mode" type="button">Paper</button>
+  </header>
+
+  <div class="sf-body">
+
+    <aside class="sf-rail">
+
+      <div class="sf-group">
+        <div class="sf-plate">Trajectory <span class="sf-plate__count">04</span></div>
+        <div class="sf-items">
+          <div class="sf-item sf-item--active">Plotting a jump <span class="sf-item__count">12</span></div>
+          <div class="sf-item">Grav-drive calibration <span class="sf-item__count">04</span></div>
+          <div class="sf-item">Lodge resupply <span class="sf-item__count">07</span></div>
+          <div class="sf-item">Survey: Kreet <span class="sf-item__count">21</span></div>
+        </div>
+      </div>
+
+      <div class="sf-group">
+        <div class="sf-plate sf-plate--dim">Systems</div>
+        <div class="sf-items">
+          <div class="sf-item">Charts</div>
+          <div class="sf-item">Instrumentation</div>
+          <div class="sf-item">Ships &amp; crews</div>
+        </div>
+      </div>
+
+      <div class="sf-telemetry">
+        <div class="sf-plate">Session data</div>
+        <div class="sf-rows">
+          <div class="sf-row"><div class="sf-row__key">Turns</div><div class="sf-row__val">12</div></div>
+          <div class="sf-row"><div class="sf-row__key">Tokens</div><div class="sf-row__val">41.2K</div></div>
+          <div class="sf-row"><div class="sf-row__key">Cost</div><div class="sf-row__val">$0.38</div></div>
+        </div>
+        <div class="sf-meters">
+          <div class="sf-meter__row">
+            <span class="sf-meter__label">Context</span>
+            <span class="sf-meter__val">62%</span>
+          </div>
+          <div class="sf-meter">
+            <div class="sf-meter__fill" style="width: 62%"></div>
+            <div class="sf-meter__tick" style="left: 80%"></div>
+          </div>
+        </div>
+      </div>
+
+    </aside>
+
+    <main class="sf-main">
+
+      <div class="sf-thread">
+        <div class="sf-thread__inner">
+
+          <section class="msg msg--user">
+            <div class="sf-label"><b>Pilot</b> · 21:04</div>
+            <div class="sf-bubble">
+              Plot a jump from Jemison to Cheyenne and keep the grav drive under
+              eighty percent. I want margin if the array drops.
+            </div>
+          </section>
+
+          <section class="msg msg--assistant">
+            <div class="sf-label"><b>Constellation</b> · 21:04</div>
+            <p>
+              Trajectory is plotted. Jemison to Cheyenne runs <code>18.4 ly</code> —
+              a single hop with the array at <strong>74%</strong>, leaving a 6%
+              reserve on the drive and a clean approach at <em>Akila</em>.
+            </p>
+
+            <div class="sf-rows">
+              <div class="sf-row">
+                <div class="sf-row__key">File</div>
+                <div class="sf-row__val">star-charts/cheyenne.jump</div>
+              </div>
+              <div class="sf-row">
+                <div class="sf-row__key">Latency</div>
+                <div class="sf-row__val">42 ms</div>
+              </div>
+              <div class="sf-row">
+                <div class="sf-row__key">Status</div>
+                <div class="sf-row__val sf-row__val--ok">OK</div>
+              </div>
+            </div>
+
+            <div class="sf-code"><span class="c">// jump plan · sol → cheyenne</span>
+<span class="k">const</span> jump = {
+  <span class="k">from</span>: <span class="s">"Jemison"</span>,
+  <span class="k">to</span>:   <span class="s">"Cheyenne"</span>,
+  <span class="k">array</span>: <span class="s">0.74</span>,      <span class="c">// reserve 6%</span>
+  <span class="k">safety</span>: <span class="s">0.80</span>
+}</div>
+
+            <p>
+              Two things to flag: the margin sits inside tolerance but not inside
+              the drive's own envelope at <strong>0.61c</strong> — it holds, it
+              just gets loud. And Cheyenne's approach is running a dust front.
+            </p>
+          </section>
+
+        </div>
+      </div>
+
+      <div class="sf-composer-wrap">
+        <div class="sf-composer">
+          <textarea class="sf-composer__field" rows="1"
+            placeholder="Message Constellation…"></textarea>
+          <button class="sf-engage" type="button">
+            Engage
+            <span class="sf-key">ENTER</span>
+          </button>
+        </div>
+        <div class="sf-hints">
+          <span class="sf-hints__item"><span class="sf-key">CTRL K</span> tools</span>
+          <span class="sf-hints__item"><span class="sf-key">SHIFT ENTER</span> newline</span>
+          <span class="sf-hints__item"><span class="sf-key">TAB</span> complete</span>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <footer class="sf-statusbar">
+    <span>PREVIEW</span>
+    <span class="sf-live">FIELD · ONLINE</span>
+    <span id="sf-fps">—</span>
+    <span class="sf-right">
+      <span>MASS 1.00G</span>
+      <span>O₂ 98%</span>
+      <span>SHELL v0.2</span>
+    </span>
+  </footer>
+
+</div>
+
+<script src="brand-paths.js"></script>
+<script src="starfield.js"></script>
+<script>
+  (function () {
+    var root = document.documentElement;
+
+    // Real brand artwork: one <path> per glyph, every one `currentColor`, so
+    // the whale and the wordmark can take different colours from CSS.
+    (function paintBrand() {
+      var paths = window.BRAND_PATHS;
+      if (!paths) return;
+      var NS = "http://www.w3.org/2000/svg";
+      function path(d) {
+        var el = document.createElementNS(NS, "path");
+        el.setAttribute("d", d);
+        el.setAttribute("fill", "currentColor");
+        return el;
+      }
+      var fish = document.createElementNS(NS, "svg");
+      fish.setAttribute("viewBox", "0 0 23.16 17.04");
+      fish.setAttribute("height", "15");
+      fish.appendChild(path(paths.fish));
+      document.getElementById("sf-mark").appendChild(fish);
+
+      var word = document.createElementNS(NS, "svg");
+      word.setAttribute("viewBox", "26 0 156 24");
+      word.setAttribute("height", "15");
+      paths.glyphs.forEach(function (d) { word.appendChild(path(d)); });
+      document.getElementById("sf-word").appendChild(word);
+    })();
+
+    // ?mode=light renders the dataslate directly, which is how the stills are
+    // captured without needing to click the toggle.
+    var requested = new URLSearchParams(location.search).get("mode");
+    if (requested === "light" || requested === "dark") root.dataset.sfMode = requested;
+    var canvas = document.getElementById('sf-canvas');
+    var thread = document.querySelector('.sf-thread__inner');
+    var toggle = document.getElementById('sf-mode');
+
+    // the toggle reports the *other* surface, so it must reflect ?mode too
+    toggle.textContent = root.dataset.sfMode === "light" ? "Star map" : "Paper";
+
+    var field = window.createStarfield(canvas, {
+      seed: 20230906,
+      mode: root.dataset.sfMode === 'light' ? 'light' : 'dark',
+      // The chart lives in the margins: no route may cross the reading column.
+      avoid: function () {
+        return thread ? [thread.getBoundingClientRect()] : [];
+      }
+    });
+
+    function setMode(mode) {
+      root.dataset.sfMode = mode;
+      field.setMode(mode);
+      toggle.textContent = mode === 'light' ? 'Star map' : 'Paper';
+    }
+
+    toggle.addEventListener('click', function () {
+      setMode(root.dataset.sfMode === 'light' ? 'dark' : 'light');
+    });
+
+    // Frame time, so density and bloom cost can be judged honestly.
+    var readout = document.getElementById('sf-fps');
+    var last = performance.now();
+    var acc = 0;
+    var frames = 0;
+    function tick(now) {
+      acc += now - last;
+      last = now;
+      frames += 1;
+      if (acc >= 500) {
+        readout.textContent = Math.round((frames * 1000) / acc) + ' FPS';
+        acc = 0;
+        frames = 0;
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+
+    window.preview = { field: field, setMode: setMode };
+  })();
+</script>
+</body>
+</html>

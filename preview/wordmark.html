@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Wordmark colour studies</title>
+<link rel="stylesheet" href="tokens.css" />
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #111214;
+    color: #e8eaee;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    padding: 18px;
+  }
+  h1 { font-size: 12px; letter-spacing: .18em; text-transform: uppercase; color: #9aa1aa; margin: 0 0 14px; font-weight: 600; }
+  .row { display: grid; grid-template-columns: 120px 1fr 1fr; gap: 10px; align-items: center; margin-bottom: 10px; }
+  .row__name { font-size: 10px; letter-spacing: .14em; text-transform: uppercase; color: #9aa1aa; }
+  .row__name b { display: block; color: #e8eaee; font-size: 12px; letter-spacing: .1em; margin-bottom: 3px; }
+  .cell { padding: 12px 14px; display: flex; align-items: center; min-height: 62px; }
+  .cell--dark { background: var(--sf-paper-1); }
+  .cell--light { background: var(--sf-paper-2); }
+  .plate { display: flex; align-items: center; gap: 10px; padding: 6px 12px 6px 0; }
+  .plate--dark { background: var(--sf-bar); color: var(--sf-bar-ink); }
+  .plate--light { background: #747879; color: #FFFFFF; }
+  .flag { display: flex; align-self: stretch; width: 20px; flex: none; }
+  .flag i { flex: 1; }
+  .mark { display: flex; align-items: center; }
+  .word { display: flex; align-items: center; }
+  #report { font-family: Consolas, monospace; font-size: 10px; color: #7f8792; white-space: pre; margin: 0 0 12px; }
+</style>
+</head>
+<body>
+<pre id="report"></pre>
+<div id="board"></div>
+
+<script src="brand-paths.js"></script>
+<script>
+(function () {
+  var DS_BLUE = "#4D6BFE";
+  var paths = window.BRAND_PATHS;
+  if (!paths) { document.body.innerHTML = "<p>brand-paths.js missing</p>"; return; }
+
+  var svgNs = "http://www.w3.org/2000/svg";
+  var FISH_VIEWBOX = { w: 23.16, h: 17.04 };
+
+  function el(name, attrs) {
+    var node = document.createElementNS(svgNs, name);
+    for (var k in attrs) node.setAttribute(k, attrs[k]);
+    return node;
+  }
+
+  // Wordmark svg with one path per glyph, so fills can be assigned per glyph.
+  function wordmarkSvg(height, fills) {
+    var svg = el("svg", { viewBox: "26 0 156 24", height: height, fill: "none" });
+    paths.glyphs.forEach(function (d, i) {
+      svg.appendChild(el("path", { d: d, fill: fills[i] || "currentColor" }));
+    });
+    return svg;
+  }
+
+  function fishSvg(height, colour) {
+    var svg = el("svg", {
+      viewBox: "0 0 " + FISH_VIEWBOX.w + " " + FISH_VIEWBOX.h,
+      height: height,
+      fill: "none",
+    });
+    svg.appendChild(el("path", { d: paths.fish, fill: colour }));
+    return svg;
+  }
+
+  // Glyphs are not stored left-to-right, so measure and order them once.
+  var measure = wordmarkSvg(24, []);
+  document.body.appendChild(measure);
+  var boxes = [];
+  Array.prototype.forEach.call(measure.querySelectorAll("path"), function (p, i) {
+    var b = p.getBBox();
+    boxes.push({ i: i, x: b.x, w: b.width, fill: p });
+  });
+  boxes.sort(function (a, b) { return a.x - b.x; });
+  measure.remove();
+
+  var report = ["ordered glyphs (left → right):"];
+  var prevEnd = null;
+  boxes.forEach(function (b, n) {
+    var gap = prevEnd === null ? 0 : (b.x - prevEnd);
+    report.push(
+      "  #" + String(n).padStart(2, "0") +
+      "  x=" + b.x.toFixed(2).padStart(7) +
+      "  w=" + b.w.toFixed(2).padStart(6) +
+      "  gap=" + gap.toFixed(2)
+    );
+    prevEnd = b.x + b.w;
+  });
+  document.getElementById("report").textContent = report.join("\n");
+
+  // Word split: the largest x gap separates the two words.
+  var biggest = { size: -1, at: 0 };
+  for (var i = 1; i < boxes.length; i += 1) {
+    var gap = boxes[i].x - (boxes[i - 1].x + boxes[i - 1].w);
+    if (gap > biggest.size) biggest = { size: gap, at: i };
+  }
+  var SPLIT = biggest.at;
+  document.getElementById("report").textContent += "\n\nword split after glyph " + SPLIT +
+    " (gap " + biggest.size.toFixed(2) + ")";
+
+  function paint(spec) {
+    var fills = boxes.map(function (b, n) {
+      if (spec.whaleOnly) return spec.words;
+      if (n < SPLIT) return n < spec.word1At ? spec.word1 : spec.word2;
+      return spec.word3;
+    });
+    return fills;
+  }
+
+  var VARIANTS = [
+    {
+      name: "V1", title: "monochrome",
+      note: "whale + words in plate ink — the quiet baseline",
+      whale: "ink", words: "ink"
+    },
+    {
+      name: "V2", title: "whale brass + words split",
+      note: "whale brass · deep red · seek orange · harness navy",
+      whale: "livery-1",
+      split: { deep: "livery-2", seek: "livery-3", harness: "livery-4" }
+    },
+    {
+      name: "V3", title: "whale blue + words split",
+      note: "whale DeepSeek blue · deep brass · seek red · harness orange",
+      whale: "dsblue",
+      split: { deep: "livery-1", seek: "livery-2", harness: "livery-3" }
+    },
+    {
+      name: "V4", title: "whale blue, words monochrome",
+      note: "one colour on the glyph only; letters stay ink",
+      whale: "dsblue", words: "ink"
+    }
+  ];
+
+  function colourFor(token, isLight) {
+    if (token === "ink") return isLight ? "#FFFFFF" : "var(--sf-bar-ink)";
+    if (token === "dsblue") return DS_BLUE;
+    return "var(--sf-" + token + ")";
+  }
+
+  var board = document.getElementById("board");
+
+  // Glyph map: every glyph numbered, so a colour boundary can be checked for
+  // landing mid-letter.
+  var mapRow = document.createElement("div");
+  mapRow.className = "row";
+  var mapLabel = document.createElement("div");
+  mapLabel.className = "row__name";
+  mapLabel.innerHTML = "<b>MAP</b>glyph order";
+  mapRow.appendChild(mapLabel);
+  var mapCell = document.createElement("div");
+  mapCell.className = "cell cell--dark";
+  var mapBox = document.createElement("div");
+  mapBox.style.display = "flex";
+  mapBox.style.alignItems = "flex-end";
+  mapBox.style.gap = "2px";
+  boxes.forEach(function (b, n) {
+    var stack = document.createElement("div");
+    stack.style.display = "flex";
+    stack.style.flexDirection = "column";
+    stack.style.alignItems = "center";
+    stack.style.gap = "3px";
+    var mini = el("svg", { viewBox: "0 0 182 24", height: 26, width: Math.max(b.w, 4) * 26 / 24 });
+    mini.appendChild(el("path", { d: paths.glyphs[b.i], fill: n === SPLIT ? "#E0564B" : "#E9EDF2" }));
+    var tag = document.createElement("span");
+    tag.textContent = n;
+    tag.style.font = "9px Consolas, monospace";
+    tag.style.color = n === SPLIT ? "#E0564B" : "#6B747F";
+    stack.appendChild(mini);
+    stack.appendChild(tag);
+    mapBox.appendChild(stack);
+  });
+  mapCell.appendChild(mapBox);
+  mapRow.appendChild(mapCell);
+  board.appendChild(mapRow);
+
+  VARIANTS.forEach(function (v) {
+    var row = document.createElement("div");
+    row.className = "row";
+
+    var label = document.createElement("div");
+    label.className = "row__name";
+    label.innerHTML = "<b>" + v.name + "</b>" + v.title;
+    row.appendChild(label);
+
+    ["dark", "light"].forEach(function (surface) {
+      var isLight = surface === "light";
+      var cell = document.createElement("div");
+      cell.className = "cell cell--" + surface;
+      // Tokens are scoped by this attribute, so the light column must carry it
+      // or it silently renders the dark palette.
+      if (isLight) cell.setAttribute("data-sf-mode", "light");
+
+      var plate = document.createElement("div");
+      plate.className = "plate plate--" + surface;
+
+      var flag = document.createElement("span");
+      flag.className = "flag";
+      ["livery-1", "livery-2", "livery-3", "livery-4"].forEach(function (t) {
+        var bar = document.createElement("i");
+        bar.style.background = "var(--sf-" + t + ")";
+        flag.appendChild(bar);
+      });
+      plate.appendChild(flag);
+
+      var markWrap = document.createElement("span");
+      markWrap.className = "mark";
+      markWrap.appendChild(fishSvg(17, colourFor(v.whale, isLight)));
+      plate.appendChild(markWrap);
+
+      var wordWrap = document.createElement("span");
+      wordWrap.className = "word";
+
+      var fills;
+      if (v.split) {
+        var deepN = 4; // "deep" = 4 glyphs
+        fills = boxes.map(function (b, n) {
+          if (n < deepN) return colourFor(v.split.deep, isLight);
+          if (n < SPLIT) return colourFor(v.split.seek, isLight);
+          return colourFor(v.split.harness, isLight);
+        });
+      } else {
+        fills = boxes.map(function () { return colourFor(v.words, isLight); });
+      }
+      wordWrap.appendChild(wordmarkSvg(19, fills));
+      plate.appendChild(wordWrap);
+
+      cell.appendChild(plate);
+      row.appendChild(cell);
+    });
+    board.appendChild(row);
+  });
+})();
+</script>
+</body>
+</html>

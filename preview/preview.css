@@ -1,0 +1,666 @@
+/* =============================================================================
+ * dsh-theme-starfield — preview chrome
+ * -----------------------------------------------------------------------------
+ * A stand-in for the DSH shell built from the components the game's map and
+ * dataslate actually use:
+ *
+ *   .sf-plate     solid light header bar ("SYSTEM", "TRAVEL DATA")
+ *   .sf-rows      two-cell label/value table (key cell + right-aligned value)
+ *   .sf-key       boxed keycap ("L", "TAB", "X")
+ *   .sf-engage    primary action as a light block with dark ink ("JUMP")
+ *   .sf-meter     thin segmented progress bar with an orange readout
+ *
+ * Dark = the star map. Light = the dataslate (matte paper, slate ink, bezel).
+ * ========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--sf-paper-1);
+  color: var(--sf-ink);
+  font-family: var(--sf-font-ui);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* Bahnschrift is a variable font: condensed carried the game's instrument
+   lettering, and `font-stretch` is how the width axis is requested. */
+.sf-plate,
+.sf-brand__name,
+.sf-row__key,
+.sf-label,
+.sf-key,
+.sf-engage,
+.sf-item__count,
+.sf-meter__label {
+  font-family: var(--sf-font-display);
+  font-stretch: var(--sf-stretch);
+}
+
+/* -- atmosphere ------------------------------------------------------------ */
+
+.sf-field {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.sf-sky {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 62% 18%, rgba(63, 201, 222, 0.05), transparent 46%),
+    radial-gradient(circle at 18% 82%, rgba(238, 154, 44, 0.04), transparent 50%),
+    linear-gradient(180deg, var(--sf-paper-2) 0%, var(--sf-paper-1) 58%, var(--sf-paper-2) 100%);
+}
+
+#sf-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.sf-vignette {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 42%, transparent 42%, var(--sf-vignette) 100%);
+}
+
+/* Dataslate: printed paper edge, no glow. */
+.sf-bezel {
+  position: absolute;
+  inset: 0;
+  display: none;
+  box-shadow:
+    inset 0 0 0 1px rgba(52, 56, 66, 0.34),
+    inset 0 0 90px rgba(70, 74, 86, 0.20);
+}
+
+[data-sf-mode="light"] .sf-bezel {
+  display: block;
+}
+
+[data-sf-mode="light"] .sf-sky {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.20), transparent 58%),
+    linear-gradient(180deg, var(--sf-paper-1) 0%, var(--sf-paper-2) 100%);
+}
+
+/* -- shell ----------------------------------------------------------------- */
+
+.sf-app {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  display: grid;
+  grid-template-rows: 44px 1fr 26px;
+}
+
+.sf-topbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--sf-line);
+  background: linear-gradient(180deg, rgba(9, 13, 19, 0.9), rgba(8, 11, 16, 0.5));
+}
+
+[data-sf-mode="light"] .sf-topbar {
+  background: linear-gradient(180deg, rgba(210, 210, 220, 0.9), rgba(196, 196, 208, 0.55));
+}
+
+/* stencil ID plate carrying the brand, like a label stuck on hardware */
+.sf-brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: var(--sf-bar);
+  color: var(--sf-bar-ink);
+  padding: 4px 11px 4px 0;
+}
+
+/* The livery flag: flush to the plate's leading edge, full plate height.
+   Four bars, not five — in dark mode the plate is itself light, so a chalk
+   segment would disappear into it, and the four chromatic hues read the same
+   on both surfaces. */
+.sf-brand__flag {
+  display: flex;
+  align-self: stretch;
+  width: 20px;
+  flex: none;
+}
+
+.sf-brand__flag i {
+  flex: 1;
+}
+
+.sf-brand__mark {
+  display: flex;
+  color: var(--sf-brand-blue);
+}
+
+.sf-brand__word {
+  display: flex;
+  color: var(--sf-bar-ink);
+}
+
+.sf-brand__mark svg,
+.sf-brand__word svg {
+  display: block;
+}
+
+.sf-brand svg {
+  color: var(--sf-bar-ink);
+  opacity: 0.85;
+}
+
+.sf-brand__name {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: var(--sf-tracking-label);
+}
+
+.sf-brand__sub {
+  font-family: var(--sf-font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  opacity: 0.66;
+}
+
+.sf-topbar__meta {
+  margin-left: auto;
+  display: flex;
+  gap: 14px;
+  font-family: var(--sf-font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.09em;
+  color: var(--sf-ink-3);
+}
+
+.sf-topbar__meta b {
+  color: var(--sf-ink-2);
+  font-weight: 400;
+}
+
+.sf-mode {
+  border: 1px solid var(--sf-line-strong);
+  background: transparent;
+  color: var(--sf-ink-2);
+  font-family: var(--sf-font-display);
+  font-stretch: var(--sf-stretch);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.sf-mode:hover {
+  border-color: var(--sf-route);
+  color: var(--sf-route);
+}
+
+.sf-body {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  min-height: 0;
+}
+
+/* -- rail ------------------------------------------------------------------ */
+
+.sf-rail {
+  border-right: 1px solid var(--sf-line);
+  background: linear-gradient(180deg, rgba(16, 21, 30, 0.72), rgba(8, 11, 16, 0.35));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+[data-sf-mode="light"] .sf-rail {
+  background: linear-gradient(180deg, rgba(196, 196, 207, 0.8), rgba(186, 186, 198, 0.5));
+}
+
+.sf-group + .sf-group {
+  border-top: 1px solid var(--sf-line);
+}
+
+.sf-plate {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--sf-bar);
+  color: var(--sf-bar-ink);
+  padding: 5px 10px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: var(--sf-tracking-label);
+  text-transform: uppercase;
+}
+
+.sf-plate--dim {
+  background: var(--sf-bar-dim);
+  color: var(--sf-bar-dim-ink);
+}
+
+.sf-plate__count {
+  margin-left: auto;
+  font-family: var(--sf-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+}
+
+.sf-items {
+  padding: 6px 0;
+}
+
+.sf-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-left: 2px solid transparent;
+  color: var(--sf-ink-2);
+  font-size: 12.5px;
+  cursor: default;
+  user-select: none;
+}
+
+.sf-item:hover {
+  background: var(--sf-hull-raised);
+  color: var(--sf-ink);
+}
+
+.sf-item--active {
+  border-left-color: var(--sf-route);
+  background: var(--sf-hull-raised);
+  color: var(--sf-ink);
+}
+
+.sf-item__count {
+  margin-left: auto;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  color: var(--sf-ink-3);
+}
+
+.sf-item--active .sf-item__count {
+  color: var(--sf-route);
+}
+
+/* telemetry block pinned to the rail bottom */
+.sf-telemetry {
+  margin-top: auto;
+  border-top: 1px solid var(--sf-line);
+}
+
+.sf-meters {
+  padding: 10px 11px 12px;
+  display: grid;
+  gap: 9px;
+}
+
+.sf-meter__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.sf-meter__label {
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--sf-ink-3);
+}
+
+.sf-meter__val {
+  font-family: var(--sf-font-mono);
+  font-size: 10px;
+  color: var(--sf-accent);
+}
+
+.sf-meter {
+  position: relative;
+  height: 7px;
+  background: rgba(226, 232, 240, 0.13);
+}
+
+[data-sf-mode="light"] .sf-meter {
+  background: rgba(62, 68, 78, 0.18);
+}
+
+.sf-meter__fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  background: var(--sf-accent);
+}
+
+.sf-meter__tick {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 1px;
+  background: rgba(226, 232, 240, 0.35);
+}
+
+/* -- main ------------------------------------------------------------------ */
+
+.sf-main {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  min-height: 0;
+}
+
+.sf-thread {
+  overflow-y: auto;
+  padding: 26px 0 16px;
+}
+
+.sf-thread__inner {
+  max-width: 700px;
+  margin: 0 auto;
+  padding: 0 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.sf-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--sf-ink-3);
+  margin-bottom: 7px;
+}
+
+.sf-label::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--sf-line);
+}
+
+.sf-label b {
+  color: var(--sf-route);
+  font-weight: 600;
+}
+
+.msg--user {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.msg--user .sf-label {
+  justify-content: flex-end;
+}
+
+.msg--user .sf-label::before {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--sf-line);
+}
+
+.msg--user .sf-label::after {
+  display: none;
+}
+
+.msg--user .sf-bubble {
+  background: var(--sf-hull-raised);
+  border: 1px solid var(--sf-line);
+  padding: 10px 13px;
+  max-width: 78%;
+}
+
+.msg p {
+  margin: 0 0 10px;
+  line-height: 1.62;
+}
+
+.msg p:last-child {
+  margin-bottom: 0;
+}
+
+.msg code {
+  font-family: var(--sf-font-mono);
+  font-size: 11.5px;
+  padding: 1px 5px;
+  background: var(--sf-cell-key);
+  border: 1px solid var(--sf-line);
+  color: var(--sf-route);
+}
+
+/* -- data rows ------------------------------------------------------------- */
+
+.sf-rows {
+  border: 1px solid var(--sf-line);
+  margin-top: 12px;
+}
+
+.sf-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 34%) 1fr;
+}
+
+.sf-row + .sf-row {
+  border-top: 1px solid var(--sf-line);
+}
+
+.sf-row:nth-child(even) .sf-row__val {
+  background: var(--sf-cell-alt);
+}
+
+.sf-row__key {
+  background: var(--sf-cell-key);
+  color: var(--sf-ink-2);
+  padding: 5px 9px;
+  font-size: 9px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.sf-row__val {
+  background: var(--sf-cell-val);
+  color: var(--sf-ink);
+  padding: 5px 10px;
+  text-align: right;
+  font-family: var(--sf-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sf-row__val--ok {
+  color: var(--sf-ok);
+}
+
+.sf-row__val--route {
+  color: var(--sf-route);
+}
+
+.sf-code {
+  margin: 12px 0 0;
+  background: var(--sf-hull-sunken);
+  border: 1px solid var(--sf-line);
+  border-left: 2px solid var(--sf-route);
+  padding: 10px 12px;
+  font-family: var(--sf-font-mono);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--sf-ink-2);
+  /* without this every newline in the markup collapses and the block renders
+     as one unbroken line */
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.sf-code .k { color: var(--sf-accent); }
+.sf-code .s { color: var(--sf-ok); }
+.sf-code .c { color: var(--sf-ink-3); }
+
+/* -- composer -------------------------------------------------------------- */
+
+.sf-composer-wrap {
+  padding: 0 22px 16px;
+}
+
+.sf-composer {
+  max-width: 700px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: stretch;
+  border: 1px solid var(--sf-line-strong);
+  background: var(--sf-hull-sunken);
+}
+
+.sf-composer:focus-within {
+  border-color: var(--sf-route);
+}
+
+.sf-composer__field {
+  border: 0;
+  outline: 0;
+  resize: none;
+  background: transparent;
+  color: var(--sf-ink);
+  font-family: var(--sf-font-ui);
+  font-size: 13.5px;
+  line-height: 1.5;
+  padding: 11px 13px;
+  min-height: 46px;
+}
+
+.sf-composer__field::placeholder {
+  color: var(--sf-ink-3);
+}
+
+.sf-engage {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  background: var(--sf-action);
+  color: var(--sf-action-ink);
+  border: 0;
+  padding: 0 14px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.sf-engage:hover {
+  filter: brightness(1.08);
+}
+
+.sf-engage .sf-key {
+  border-color: rgba(16, 20, 26, 0.35);
+  color: var(--sf-action-ink);
+}
+
+.sf-hints {
+  max-width: 700px;
+  margin: 8px auto 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--sf-font-display);
+  font-stretch: var(--sf-stretch);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--sf-ink-3);
+}
+
+.sf-hints__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sf-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border: 1px solid var(--sf-line-strong);
+  color: var(--sf-ink-2);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+}
+
+/* -- status bar ------------------------------------------------------------ */
+
+.sf-statusbar {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 0 16px;
+  border-top: 1px solid var(--sf-line);
+  background: rgba(8, 11, 16, 0.7);
+  font-family: var(--sf-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  color: var(--sf-ink-3);
+  text-transform: uppercase;
+}
+
+[data-sf-mode="light"] .sf-statusbar {
+  background: rgba(186, 186, 198, 0.7);
+}
+
+.sf-statusbar .sf-live {
+  color: var(--sf-ok);
+}
+
+.sf-statusbar .sf-right {
+  margin-left: auto;
+  display: flex;
+  gap: 15px;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .sf-body {
+    grid-template-columns: 1fr;
+  }
+  .sf-rail {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    transition-duration: 0.001ms !important;
+  }
+}
