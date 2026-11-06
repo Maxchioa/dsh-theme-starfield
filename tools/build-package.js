@@ -185,11 +185,11 @@ function build() {
     dsh: {
       bundle: { patch: './cordis.patch.yml' },
       client: {
-        inject: [
-          '@deepseek-ai/dsh-client-runtime',
-          '@deepseek-ai/dsh-client-ui-slots',
-          '@deepseek-ai/dsh-client-ui-theme',
-        ],
+        // Packages this bundle's code is loaded after. Only the theme service is
+        // actually needed (the token layer talks to it), and every name here has
+        // to exist in the shipped build: `@deepseek-ai/dsh-client-runtime`, which
+        // other themes list, is not a package in this build.
+        inject: ['@deepseek-ai/dsh-client-ui-theme'],
         platform: 'web',
       },
     },
