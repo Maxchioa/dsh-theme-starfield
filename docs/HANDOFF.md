@@ -2,12 +2,18 @@
 
 Everything a fresh session needs to continue this project without re-deriving it.
 
-**Status: packaged, built and offline-verified. Not installed.** The theme now
-exists as a real DSH profile bundle in [`package/`](../package) (generated from
-[`src/`](../src)), with passing tests for token coverage, the boot screen, the
-field invariant and the client install path. What has *not* happened is the
-in-situ step: the bundle is not in the profile, the app has not been restarted,
-and no screenshot of the running app exists yet. That is the next task (§8).
+**Status: packaged, built, offline-verified and installed into the desktop
+profile — awaiting an app restart.** The theme exists as a real DSH profile
+bundle in [`package/`](../package) (generated from [`src/`](../src)), passes its
+tests, and has been copied to
+`$DSH_HOME/profiles/desktop/node_modules/dsh-theme-starfield` with
+`dsh.profile.bundles` set to `dsh-base, dsh-web-app, dsh-theme-starfield` (the
+Marathon entry was dropped; its folder and its `app.asar` shell patch are
+untouched, and the original manifest is at
+`profiles/desktop/package.json.starfield.bak`).
+
+What has *not* happened is the in-situ step: the app has not been restarted, so
+the theme has never rendered inside DSH itself. That is the next task (§8).
 
 Screenshots of the *packaged* theme on a DSH-shaped DOM are in `preview/`:
 [`app-dark.png`](../preview/app-dark.png) (star map),
@@ -193,10 +199,13 @@ powershell -NoProfile -File tools/install-theme.ps1 -Apply
 
 ## 8. Next steps, in order
 
-1. **Install** — `tools/install-theme.ps1 -Apply` (copies the bundle, removes the
-   MLS entry from `dsh.profile.bundles`, backs the manifest up). Then **restart
-   the desktop app**; the bundle is not resolved before that.
-2. **Look at the real app**, both Appearance settings. The known unknowns:
+1. **Done — installed.** `tools/install-theme.ps1 -Apply` copied the bundle and
+   rewrote `dsh.profile.bundles`
+   (`…/profiles/desktop/package.json.starfield.bak` is the original). Re-running
+   it is idempotent; `-Revert -Apply` puts the manifest back and deletes the
+   folder.
+2. **Restart the desktop app**, then look at both Appearance settings. The known
+   unknowns:
    - whether any DSH surface still paints an opaque background over the field
      (the theme makes `bg-base` transparent and assumes cards/menus keep layers);
    - whether the transcript column is the only wide transparent region;
@@ -210,5 +219,5 @@ powershell -NoProfile -File tools/install-theme.ps1 -Apply
 5. **Decide the shell patch question** — the window is currently MLS's patch
    (transparent, no captions, maximised). Either revert to the pristine
    `app.asar.dsh-theme-marathon.bak` or adopt it as part of this theme.
-6. **Only then** consider the packaging polish: publishable `README`/LICENSE for
+6. **Only then** consider the packaging polish: a publishable README/LICENSE for
    the bundle, a versioned build, and the artwork question in §7.
