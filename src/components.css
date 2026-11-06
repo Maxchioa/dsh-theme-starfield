@@ -1,0 +1,237 @@
+/* =============================================================================
+ * dsh-theme-starfield — structural CSS
+ * -----------------------------------------------------------------------------
+ * What belongs here, and what does not:
+ *
+ *   NOT here — colours. Those arrive as token overrides (src/palette.js), so a
+ *   colour is edited in one place and both DSH slots resolve through it.
+ *
+ *   HERE — the four things a token cannot express:
+ *     1. the page is the map          (sky, transparent frame, field layer)
+ *     2. typography                   (the display face on chrome, tracking)
+ *     3. the brand plate              (stencil plate + livery flag + whale blue)
+ *     4. texture                      (selection, keycaps, no glass menus)
+ *
+ * Selector policy. DSH's component class names are hashed (`_2H3hWW_brandMark`),
+ * and the hash changes between builds. The *semantic suffix* does not, so
+ * structural rules match on it (`[class*="brandMark"]`) or on DSH's own data
+ * attributes. The hash is never written down here.
+ * ========================================================================== */
+
+/* -----------------------------------------------------------------------------
+ * 1. The page is the map
+ *
+ * DSH's frame and transcript column paint `--dsw-alias-bg-base`, which this
+ * theme maps to `transparent`. That is the whole trick: the app's own surfaces
+ * become the windows through which the field below is visible, while every
+ * surface that must stay readable (cards, menus, sidebar, composer) keeps an
+ * opaque layer token.
+ * -------------------------------------------------------------------------- */
+
+html {
+  /* Fallback for the instant before the canvas mounts, and for a page where the
+     client half never runs (plugin failed to load). */
+  background-color: var(--sf-paper-1);
+}
+
+body {
+  /* The DJ. DSH's boot stylesheet sets `body { background-color: … }` in the
+     head and it stays for the life of the document, so this needs !important. */
+  background-color: transparent !important;
+  background-image: none !important;
+}
+
+#root {
+  position: relative;
+  background-color: transparent !important;
+}
+
+/* On Windows the layout frame repaints itself with the sidebar fill to build a
+   titlebar inset; that would put an opaque wall in front of the field. */
+[data-windows-titlebar] [class*="_frame"] {
+  background-color: transparent !important;
+}
+
+/* The field itself. Behind everything (`z-index: -1` puts it under the app's
+   content but above the html background), never interactive. */
+#sf-field {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* -----------------------------------------------------------------------------
+ * 2. Typography
+ *
+ * Bahnschrift is a variable font and the width axis is what carries the game's
+ * condensed instrument lettering, so the chrome asks for 88% stretch. The body
+ * keeps the system UI face: condensed type at 14px costs readability, and prose
+ * is the product. Segoe UI is not width-variable, so the inherited stretch is a
+ * no-op there — which is exactly why one rule can serve both.
+ * -------------------------------------------------------------------------- */
+
+body {
+  font-stretch: var(--sf-stretch);
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+[role='button'],
+[role='tab'],
+[role='menuitem'],
+[role='menuitemcheckbox'],
+kbd,
+th,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+[class*='label'],
+[class*='Label'],
+[class*='caption'],
+[class*='Caption'],
+[class*='badge'],
+[class*='Badge'],
+[class*='chip'],
+[class*='tab_'],
+[class*='Tab'],
+[class*='toolbar'],
+[class*='Toolbar'],
+[class*='header'],
+[class*='Header'],
+[class*='plate'],
+[class*='stencil'],
+[class*='count'],
+[class*='Count'],
+[class*='meta'],
+[class*='Meta'],
+[class*='hint'],
+[class*='Hint'],
+[class*='brand'] {
+  font-family: var(--sf-font-display);
+}
+
+/* Tracked capitals are the game's label grammar: short, mechanical, never
+   sentence case. Applied to chrome only — inputs, prose and code are excluded
+   by never appearing in this list. */
+button,
+[role='tab'],
+kbd,
+th,
+[class*='label'],
+[class*='caption'],
+[class*='badge'],
+[class*='chip'] {
+  letter-spacing: var(--sf-tracking-label);
+  text-transform: uppercase;
+}
+
+/* A button that carries a keycap should not shout the keycap. */
+kbd {
+  letter-spacing: 0.04em;
+}
+
+/* -----------------------------------------------------------------------------
+ * 3. The brand plate
+ *
+ * In the game a panel header is a solid light bar with dark ink, and the livery
+ * stripe is a flag painted on its leading edge. That is the whole lockup: the
+ * plate makes the flag structural instead of decorative, which is why the
+ * "ticks painted under the wordmark" variant was rejected in the design study.
+ *
+ * Four colours, not five: on the dark surface the plate is itself light, so a
+ * chalk segment would have nothing to contrast against.
+ *
+ * The whale keeps DeepSeek blue — it is a logo, not equipment marking — and the
+ * wordmark stays mono ink. Both slots get the same plate, which is the reason
+ * the flag reads identically on the star map and on the dataslate.
+ * -------------------------------------------------------------------------- */
+
+[class*='brandIdentity'] {
+  position: relative;
+  margin: 0 0 8px;
+  padding: 5px 10px 5px 24px;
+  background: var(--sf-bar);
+  color: var(--sf-bar-ink);
+  border-radius: 2px;
+}
+
+/* The flag: four vertical bars, flush to the plate's leading edge, full height. */
+[class*='brandIdentity']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  border-radius: 2px 0 0 2px;
+  background: linear-gradient(
+    90deg,
+    var(--sf-livery-1) 0 25%,
+    var(--sf-livery-2) 25% 50%,
+    var(--sf-livery-3) 50% 75%,
+    var(--sf-livery-4) 75% 100%
+  );
+}
+
+[class*='brandMark'] svg {
+  color: var(--sf-brand-blue);
+}
+
+[class*='brandName'] {
+  color: var(--sf-bar-ink);
+}
+
+[class*='brandName'] svg {
+  color: currentColor;
+}
+
+/* The fallback/text brand name (a build without the wordmark artwork). */
+[class*='fallbackBrandName'],
+[class*='localBuildBrand'] {
+  color: var(--sf-bar-ink);
+  letter-spacing: var(--sf-tracking-label);
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+/* -----------------------------------------------------------------------------
+ * 4. Texture
+ * -------------------------------------------------------------------------- */
+
+::selection {
+  background: color-mix(in srgb, var(--sf-route) 40%, transparent);
+  color: var(--sf-ink);
+}
+
+/* Glass is not part of this language: a menu is an opaque plate, a mask is flat
+   ink. The theme's shadow and blur tokens are rebound in the token map. */
+[data-menu-material],
+[class*='menuSurface'] {
+  backdrop-filter: none;
+}
+
+/* The map's own focus treatment: a route ring, not a browser halo. DSH already
+   reads `--dsw-focus-ring-color` with `--dsw-alias-state-business-primary` as
+   the fallback, so this is a declaration of intent rather than a new rule. */
+:root {
+  --dsw-focus-ring-color: var(--sf-route);
+  --dsw-focus-ring-width: 1.5px;
+}
+
+/* Data that sits in a table should be tabular and monospaced, the way a readout
+   is. DSH marks real tabular cells with `font-variant-numeric` already; this
+   catches the populated ones that do not. */
+[class*='fileDiff'],
+[class*='diffLine'],
+[class*='jsonTree'],
+[class*='codeBlock'] code {
+  font-family: var(--sf-font-mono);
+  font-variant-numeric: tabular-nums;
+}

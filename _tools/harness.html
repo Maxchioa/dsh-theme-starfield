@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>starfield — package harness</title>
+<!-- Written by tools/build-package.js from src/host.js: the boot screen exactly
+     as the Host injects it, for this harness only. -->
+<link rel="stylesheet" href="boot-sample.css" />
+<style>
+  /* =========================================================================
+   * A MOCK of DSH's Web client, not DSH.
+   *
+   * Purpose: render the *built* package (package/client.js) against a DOM that
+   * has the shape the theme actually depends on, so the theme can be judged
+   * before it is installed and the app has to be restarted.
+   *
+   * What is faithful:
+   *   - the token names and who paints what (frame + transcript column on
+   *     --dsw-alias-bg-base, sidebar on --dsw-specific-sidebar-fill, cards on
+   *     bg-layer-*, plates on inactive/active surfaces)
+   *   - the class-name *suffixes* the structural rules match
+   *     (brandIdentity / brandMark / brandName, composerSeat, markdown)
+   *   - the presenter's behaviour: tokens are written as inline custom
+   *     properties on <body>, one set per colour scheme
+   *   - the Host boot row, injected verbatim from src/host.js
+   *
+   * What is not: layout, spacing and component markup are approximations. Judge
+   * colour, type, plates and the field here; judge polish in the app.
+   *
+   *   ?mode=dark|light   which slot to render (default dark)
+   *   ?tab=app|boot      app surface, or the boot screen frozen mid-sweep
+   *   ?t=900             boot: millisecond to freeze at
+   * ========================================================================= */
+
+  * { box-sizing: border-box; }
+
+  html, body, #root { margin: 0; height: 100%; }
+  body {
+    background: #151517;
+    color: #0f1115;
+    font: 14px/1.5 "Segoe UI", system-ui, sans-serif;
+    overflow: hidden;
+  }
+
+  /* ---- the parts of DSH's own styling that the theme speaks to ----------- */
+  ._Hx1_frame {
+    background: var(--dsw-alias-bg-base);
+    height: 100%;
+    display: grid;
+    grid-template-columns: 284px minmax(0, 1fr);
+  }
+  ._Hx1_sidebarCol {
+    background: var(--dsw-specific-sidebar-fill);
+    border-right: .5px solid var(--dsw-alias-border-l3);
+    display: flex;
+    flex-direction: column;
+    padding: 6px 12px;
+    overflow: hidden;
+  }
+  ._Hx1_centerCol {
+    background: var(--dsw-alias-bg-base);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .Dc7zOa_root {
+    background: var(--dsw-alias-bg-base);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+  }
+  ._Tx_transcript { flex: 1; overflow: auto; padding: 36px 32px 20px; min-height: 0; }
+  ._Mk_markdown { max-width: 700px; margin: 0 auto; color: var(--dsw-alias-label-primary); }
+  ._Mk_markdown p { margin: 0 0 14px; font-size: 14px; line-height: 1.62; }
+  ._Mk_markdown h2 { margin: 22px 0 10px; font-size: 19px; color: var(--dsw-alias-label-primary); }
+  ._Mk_markdown code {
+    font-family: var(--ds-font-family-code, monospace);
+    font-size: 12px;
+    background: var(--dsw-alias-markdown-inline-code);
+    border-radius: 2px;
+    padding: 1px 5px;
+  }
+  ._Mk_markdown pre {
+    background: var(--dsw-alias-markdown-code-block);
+    border-radius: var(--dsw-radius-sm, 3px);
+    padding: 12px 14px;
+    overflow: auto;
+    margin: 0 0 14px;
+  }
+  ._Mk_markdown pre code { background: none; padding: 0; }
+  ._Mk_markdown a { color: var(--dsw-alias-link); }
+
+  .Dc7zOa_composerSeat {
+    padding: 0 32px 22px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--dsw-alias-bg-base) 0%, transparent) 0px, var(--dsw-alias-bg-base) 36px);
+  }
+  ._Cp_composer {
+    max-width: 700px;
+    margin: 0 auto;
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+    background: var(--dsw-alias-bg-layer-1);
+    border: .5px solid var(--dsw-alias-border-l4);
+    border-radius: var(--dsw-radius-md, 3px);
+    padding: 8px 8px 8px 12px;
+  }
+  ._Cp_composer textarea {
+    flex: 1;
+    resize: none;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--dsw-alias-label-primary);
+    font: 13.5px/1.5 "Segoe UI", system-ui, sans-serif;
+    min-height: 40px;
+    padding: 4px 0;
+  }
+  ._Cp_composer textarea::placeholder { color: var(--dsw-alias-label-tertiary); }
+
+  /* the primary block: this is the token pair the theme calls "the JUMP block" */
+  ._Btn_primary {
+    border: 0;
+    background: var(--dsw-alias-button-primary-fill);
+    color: var(--dsw-alias-label-primary-foreground);
+    padding: 0 16px;
+    border-radius: var(--dsw-radius-sm, 3px);
+    cursor: pointer;
+  }
+
+  /* sidebar rows: hover / active come from the specific tokens */
+  ._Sb_nav { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
+  ._Sb_item {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 7px 9px;
+    border-radius: 2px;
+    color: var(--dsw-alias-label-secondary);
+    font-size: 12.5px;
+  }
+  ._Sb_item:hover { background: var(--dsw-specific-sidebar-nav-item-hover); color: var(--dsw-alias-label-primary); }
+  ._Sb_itemActive {
+    background: var(--dsw-specific-sidebar-nav-item-active);
+    color: var(--dsw-alias-label-primary);
+    box-shadow: inset 2px 0 0 0 var(--dsw-alias-state-business-primary);
+  }
+  ._Sb_item span._Sb_count { color: var(--dsw-alias-label-tertiary); }
+  ._Sb_groupLabel {
+    color: var(--dsw-alias-label-caption);
+    font-size: 10px;
+    padding: 14px 9px 6px;
+  }
+
+  /* a settings-style card, so bg-layer-2 and the card tokens are visible */
+  ._Sx_card {
+    background: var(--dsw-alias-settings-card-fill);
+    border: .5px solid var(--dsw-alias-settings-card-stroke);
+    border-radius: var(--dsw-radius-lg, 4px);
+  }
+
+  /* telemetry block: the data-cell and meter grammar */
+  ._Tl_block {
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: .5px solid var(--dsw-alias-border-l2);
+  }
+  ._Tl_row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    padding: 4px 0;
+    font-size: 10.5px;
+    color: var(--dsw-alias-label-tertiary);
+    font-family: var(--ds-font-family-code, monospace);
+  }
+  ._Tl_row b { color: var(--dsw-alias-state-warn-label); font-weight: 400; }
+  ._Tl_meter { height: 6px; background: var(--dsw-alias-interactive-bg-hover); margin-top: 4px; }
+  ._Tl_meterFill { height: 100%; width: 62%; background: var(--dsw-alias-state-warn-primary); }
+
+  /* brand plate: the elements the structural rules target */
+  ._Sb_brandIdentity {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: var(--dsw-alias-label-primary);
+  }
+  ._Sb_brandMark svg { display: block; color: currentColor; }
+  ._Sb_brandName {
+    font-family: var(--sf-font-display, "Bahnschrift"), "Segoe UI", sans-serif;
+    font-stretch: 88%;
+    font-size: 12px;
+    letter-spacing: .02em;
+  }
+  ._Sb_brandName em { font-style: normal; font-size: 10px; letter-spacing: .18em; opacity: .82; }
+
+  /* toast + tooltip: the stencil-plate grammar */
+  ._Demo_row { position: absolute; right: 26px; top: 22px; display: flex; gap: 10px; align-items: center; z-index: 3; }
+  ._Demo_toast {
+    background: var(--dsw-alias-toast-bg);
+    color: var(--dsw-alias-toast-label);
+    padding: 7px 12px;
+    font-size: 11px;
+    border-radius: 2px;
+  }
+  ._Demo_key {
+    background: var(--dsw-alias-tooltip-key-bg);
+    color: var(--dsw-alias-toast-label);
+    padding: 2px 6px;
+    border-radius: 2px;
+    font-size: 10px;
+    font-family: var(--ds-font-family-code, monospace);
+  }
+</style>
+</head>
+<body>
+  <div id="root">
+    <div class="_Hx1_frame">
+      <div class="_Hx1_sidebarCol">
+        <div class="_Sb_brand">
+          <div class="_Sb_brandIdentity">
+            <div class="_Sb_brandMark">
+              <svg width="24" height="17.6" viewBox="0 0 23.16 17.04" fill="none" aria-hidden="true">
+                <path id="whale" d="" fill="currentColor"></path>
+              </svg>
+            </div>
+            <div class="_Sb_brandName">deepseek<em> HARNESS</em></div>
+          </div>
+        </div>
+
+        <div class="_Sb_nav">
+          <div class="_Sb_groupLabel">SESSIONS</div>
+          <div class="_Sb_item _Sb_itemActive">Starfield package <span class="_Sb_count">07</span></div>
+          <div class="_Sb_item">Token mapping <span class="_Sb_count">12</span></div>
+          <div class="_Sb_item">Boot sweep <span class="_Sb_count">03</span></div>
+          <div class="_Sb_groupLabel">WORKSPACE</div>
+          <div class="_Sb_item">dsh-theme-starfield <span class="_Sb_count">git</span></div>
+        </div>
+
+        <div class="_Tl_block">
+          <div class="_Tl_row"><span>CONTEXT</span><b>62.4%</b></div>
+          <div class="_Tl_meter"><div class="_Tl_meterFill"></div></div>
+          <div class="_Tl_row"><span>TOKENS</span><b>107</b></div>
+          <div class="_Tl_row"><span>STATE</span><b>ONLINE</b></div>
+        </div>
+      </div>
+
+      <div class="_Hx1_centerCol">
+        <div class="Dc7zOa_root">
+          <div class="_Tx_transcript">
+            <article class="_Mk_markdown">
+              <p>The star map is the dark surface: near-black deep blue, crisp dots, cyan route lines and a loose plus-mark grid. The dataslate is the light one: matte gray-lavender paper with slate ink, mid-gray plates and a dark primary block.</p>
+              <p>Nothing is drawn over a paragraph. Routes and plus-marks are excluded from the reading column by a real segment/rect intersection, so the field sits behind the prose instead of through it.</p>
+              <h2>Token coverage</h2>
+              <p>All 107 alias tokens are mapped for both slots, plus the surface tokens for the sidebar, the user bubble and the menu. That is what stops DSH's light sheet from leaving white cards under light text.</p>
+              <pre><code>node _tools/theme.test.js
+node _tools/field-app.test.js
+node _tools/boot.test.js</code></pre>
+              <p>The primary block is the JUMP grammar: a solid block that inverts against the surface, dark ink on the light dark-mode block and light ink on the dark one. <a href="#">A route-coloured link</a> reads as a route.</p>
+              <div class="_Sx_card" style="padding:12px 14px;margin:16px 0">
+                <div class="_Tl_row" style="font-family:inherit;color:var(--dsw-alias-label-secondary)"><span>settings-card-fill / stroke</span><b style="color:var(--dsw-alias-state-success-primary)">ok</b></div>
+                <div class="_Tl_row" style="font-family:inherit;color:var(--dsw-alias-label-secondary)"><span>bg-layer-2</span><b style="color:var(--dsw-alias-label-tertiary)">raised</b></div>
+              </div>
+            </article>
+          </div>
+
+          <div class="Dc7zOa_composerSeat">
+            <div class="_Cp_composer">
+              <textarea rows="2" placeholder="Ask anything — the field stays out of the way."></textarea>
+              <button class="_Btn_primary">SEND</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="_Demo_row">
+    <div class="_Demo_toast">PLATE <span class="_Demo_key">TAB</span></div>
+  </div>
+
+<script>
+  // Stand in for the module loader DSH provides. The real one hands the factory
+  // to the cordis runtime; here the harness calls it directly, which is the same
+  // contract with one less moving part.
+  window.__ModuleLoader__ = {
+    load: function (definition) { window.__starfieldDefinition = definition; }
+  };
+</script>
+<script src="../preview/brand-paths.js"></script>
+<script src="../package/client.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var params = new URLSearchParams(location.search);
+  var mode = params.get('mode') === 'light' ? 'light' : 'dark';
+  var tab = params.get('tab') === 'boot' ? 'boot' : 'app';
+  var freezeAt = Number(params.get('t') || 900);
+
+  if (mode === 'dark') document.body.setAttribute('data-ds-dark-theme', '');
+  else document.body.removeAttribute('data-ds-dark-theme');
+
+  // the whale, from the extracted artwork
+  if (window.BRAND_PATHS && window.BRAND_PATHS.fish) {
+    document.getElementById('whale').setAttribute('d', window.BRAND_PATHS.fish);
+  }
+
+  /* ---- stand in for DSH's theme presenter -------------------------------
+   * The real presenter writes the active scheme's values as inline custom
+   * properties on <body>. Reproducing that exactly is what makes this harness
+   * worth looking at: nothing about the palette is special-cased here. */
+  var snapshot = null;
+  var theme = {
+    overrideTokens: function (source, tokens) {
+      snapshot = tokens;
+      apply();
+      return function () {};
+    }
+  };
+
+  function apply() {
+    if (!snapshot) return;
+    var dark = document.body.hasAttribute('data-ds-dark-theme');
+    for (var name in snapshot) {
+      if (!Object.prototype.hasOwnProperty.call(snapshot, name)) continue;
+      document.body.style.setProperty(name, dark ? snapshot[name].dark : snapshot[name].light);
+    }
+  }
+
+  var ctx = {
+    get: function (name) { return name === 'theme' ? theme : null; },
+    on: function () { return function () {}; },
+    effect: function (fn) { var off = fn(); return function () { if (typeof off === 'function') off(); }; }
+  };
+
+  var definition = window.__starfieldDefinition;
+  if (definition) definition.factory().apply(ctx);
+
+  /* ---- the boot screen, exactly as the Host injects it -------------------
+   * `boot-sample.css` is written by tools/build-package.js from src/host.js at
+   * build time, so what is under review is the shipped geometry — not a copy.
+   * On the app tab the readiness flag is set, which must retract it completely:
+   * that is the cut being tested, not just a screenshot. */
+  if (tab === 'boot') {
+    // Freeze the real keyframes at `t` instead of computing a frame, so a bug in
+    // the animation cannot be hidden by the harness. Only the two moving parts are
+    // frozen: in the shipped design the curtain is static until readiness, so
+    // forcing it visible is what the screen looks like while the sweep plays.
+    // (Freezing its 6s fallback too would retract it on the first captured frame,
+    // which is exactly the mistake the preview made with ?still=.)
+    var freeze = document.createElement('style');
+    freeze.textContent =
+      'html::after{animation:none!important;opacity:1!important;visibility:visible!important}' +
+      'html::before{animation-delay:' + (-freezeAt) + 'ms!important;animation-play-state:paused!important}' +
+      'body::before{animation-delay:' + (350 - freezeAt) + 'ms!important;animation-play-state:paused!important}';
+    document.head.appendChild(freeze);
+    document.documentElement.removeAttribute('data-sf-live');
+  } else {
+    // the readiness flag the client half sets once the sweep has finished.
+    //
+    // Virtual-time capture does not advance CSS animations (the same trap the
+    // preview hit), so the retracted state is forced here instead of screenshot
+    // a 220ms fade at whatever frame the capture happened to land on. The boot
+    // tab still exercises the real keyframes, via ?t= freeze.
+    var cut = document.createElement('style');
+    cut.textContent =
+      'html[data-sf-live]::after{animation:none!important;opacity:0!important;visibility:hidden!important}' +
+      'html[data-sf-live]::before,html[data-sf-live] body::before{animation:none!important;opacity:0!important;visibility:hidden!important}';
+    document.head.appendChild(cut);
+    document.documentElement.setAttribute('data-sf-live', '');
+  }
+
+  document.title = 'starfield ' + mode + ' / ' + tab + (tab === 'boot' ? ' @' + freezeAt + 'ms' : '');
+})();
+</script>
+</body>
+</html>

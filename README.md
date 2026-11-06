@@ -1,79 +1,108 @@
 # dsh-theme-starfield
 
-A **Starfield** theme for [DSH](https://github.com/deepseek-ai/deepseek-harness) in two
-surfaces taken from the game: the **star map** (dark, crisp dots, cyan routes, stencil
-plates) and the **dataslate** (light, matte paper, slate ink, printed speck).
+A **Starfield** theme for [DSH](https://github.com/deepseek-ai/deepseek-harness)
+in two surfaces taken from the game: the **star map** (dark — crisp dots, cyan
+routes, stencil plates) and the **dataslate** (light — matte paper, slate ink,
+printed speck). The theme follows the app's own Appearance setting.
 
-> Status: **preview stage.** The visual language, both palettes and the field engine
-> exist and are tested; DSH packaging is the next step — see [Next](#next).
+> **Status: packaged and offline-verified; not installed yet.** The bundle in
+> [`package/`](package) is built from [`src/`](src) and passes its tests. The next
+> step is installing it and restarting the desktop app — see
+> [`docs/HANDOFF.md`](docs/HANDOFF.md) §8.
 >
-> **Starting a fresh session?** Read [`docs/HANDOFF.md`](docs/HANDOFF.md) first — it
-> carries the locked decisions, the DSH internals this depends on, the environment
-> traps, and the ordered next steps.
+> **Starting a fresh session? Read [`docs/HANDOFF.md`](docs/HANDOFF.md) first** —
+> locked decisions, DSH internals, environment traps, ordered next steps.
 
 ## Look at it
 
-Open [`preview/index.html`](preview/index.html) in a browser. It is a stand-in for the
-DSH shell — rail, plates, transcript, data rows, composer, status — with the real field
-engine and the real DeepSeek Harness artwork behind it, and a **Paper / Star map**
-toggle in the top bar (`?mode=light` renders the dataslate directly).
-
-These are **real screenshots** (headless render of `preview/index.html`), not mockups:
+These are real renders of the **packaged theme** on a DSH-shaped DOM
+([`_tools/harness.html`](_tools/harness.html)), not mockups:
 
 | Dark — star map | Light — dataslate |
 | --- | --- |
-| ![](preview/shot-dark.png) | ![](preview/shot-light.png) |
+| ![](preview/app-dark.png) | ![](preview/app-light.png) |
 
-Boot is a separate page: [`preview/boot.html`](preview/boot.html) plays the livery
-swipe (`?still=<ms>` freezes a frame).
+The packaged boot sweep, frozen mid-flight (`animation-delay`, not a computed
+frame):
 
-![](preview/boot-swipe.png)
+| t = 400ms | t = 900ms |
+| --- | --- |
+| ![](preview/boot-sweep-400.png) | ![](preview/boot-sweep-900.png) |
 
-All of it reads its colours from [`preview/tokens.css`](preview/tokens.css).
+The design-stage preview is still there for the palette study: open
+[`preview/index.html`](preview/index.html) (`?mode=light` for the dataslate), or
+the standalone boot page [`preview/boot.html`](preview/boot.html).
 
-## Check it
+## What it does
+
+- **The whole alias layer.** All 107 `--dsw-alias-*` tokens for both slots, plus
+  the `--dsw-specific-*` surfaces (sidebar, bubble, menu) and the font/radius
+  scales. DSH's light sheet resolves most surfaces to pure white, so a partial
+  palette is what leaves white cards under light text.
+- **The page is the map.** `bg-base` is transparent, the frame becomes a window on
+  a canvas painted with the sky, plus-grid, waypoint rings and cyan routes; cards,
+  menus, the sidebar and the composer stay opaque.
+- **No stroke over prose.** Routes and plus-marks are excluded from the live
+  transcript, composer and user-bubble rects by a real segment/rect intersection.
+- **A CSS-only boot sweep.** The Host writes the curtain, the whale and one
+  sheared band of the five livery colours into the served index, with strip
+  widths, band width and shear angle allocated per page load.
+- **A readiness cut.** The client half lifts the curtain only after the sweep has
+  finished, so the band never crosses an app the user can see.
+
+## Build and check
 
 ```powershell
-node _tools/field.test.js
+node tools/build-package.js        # src/ -> package/
+npm test                           # theme, field, boot and client tests
+node tools/build-package.js --check # is package/ current with src/?
 ```
 
-Runs the engine headlessly and asserts the invariant that matters: **no stroke may
-cross the reading column**, while still drawing a chart at all (`PASS 30 strokes, 10
-chart lines`).
+`npm test` runs:
 
-## What is here
+| Test | Proves |
+| --- | --- |
+| [`_tools/theme.test.js`](_tools/theme.test.js) | every alias is mapped, palette parity with `preview/tokens.css`, CSS balance |
+| [`_tools/field.test.js`](_tools/field.test.js) | the preview engine's "no stroke over the reading column" invariant |
+| [`_tools/field-app.test.js`](_tools/field-app.test.js) | the shipped engine paints the sky and crosses no prose or composer rect |
+| [`_tools/boot.test.js`](_tools/boot.test.js) | allocation bounds, band geometry, readiness cut, two regression guards |
+| [`_tools/client.test.js`](_tools/client.test.js) | `package/client.js` installs, tears down and does not double-mount |
+
+## Install
+
+```powershell
+powershell -NoProfile -File tools/install-theme.ps1          # dry run: prints the plan
+powershell -NoProfile -File tools/install-theme.ps1 -Apply   # copy + register
+```
+
+Then **restart the desktop app** — a new profile bundle is only resolved at
+startup. `-Revert -Apply` restores the profile manifest backup.
+
+The installer also removes any other installed theme from
+`dsh.profile.bundles`; two bundles cannot both own the token layer. It leaves the
+other package's folder (and its `app.asar` shell patch) alone.
+
+## Layout
 
 | Path | Role |
 | --- | --- |
-| [`preview/tokens.css`](preview/tokens.css) | Both palettes (dark `:root`, light `[data-sf-mode="light"]`) |
-| [`preview/starfield.js`](preview/starfield.js) | Field engine: dots, plus-grid, waypoint rings, cyan routes |
-| [`preview/preview.css`](preview/preview.css) | Preview chrome: plates, data rows, keycaps, primary block, meter |
-| [`preview/index.html`](preview/index.html) | The preview, with the surface toggle |
-| [`preview/boot.html`](preview/boot.html) | Boot livery swipe |
-| [`preview/wordmark.html`](preview/wordmark.html) | Wordmark colour study ([`wordmark-study.png`](preview/wordmark-study.png)) |
-| [`preview/brand-paths.js`](preview/brand-paths.js) | Real brand geometry, extracted from the shipped bundle |
-| [`tools/extract-brand-paths.js`](tools/extract-brand-paths.js) | Produces `brand-paths.js` from the primitives bundle |
-| [`tools/mockup.py`](tools/mockup.py) | Offline palette studies (superseded by the screenshots) |
-| [`tools/livery.py`](tools/livery.py) | Livery placements ([`preview/livery.png`](preview/livery.png)) |
-| [`docs/DESIGN.md`](docs/DESIGN.md) | Palette tables, components, livery, boot, field rules |
-| [`_tools/field.test.js`](_tools/field.test.js) | Headless invariant test |
-| [`_reference/`](_reference) | Extracted DSH packages + token inventory (research) |
+| [`src/palette.js`](src/palette.js) | Palette for both slots + the full token map |
+| [`src/components.css`](src/components.css) | Frame/field layer, typography, brand plate, texture |
+| [`src/field.js`](src/field.js) | The star map engine (sky, dots, grid, routes, exclusions) |
+| [`src/client.js`](src/client.js) | Client half: tokens, CSS, canvas, readiness cut |
+| [`src/host.js`](src/host.js) | Host half: the CSS-only boot screen |
+| [`tools/build-package.js`](tools/build-package.js) | Builds `package/` (inlines CSS, bundles modules, bakes the whale) |
+| [`tools/install-theme.ps1`](tools/install-theme.ps1) | Profile install / revert |
+| [`tools/preview-shots.ps1`](tools/preview-shots.ps1) | Regenerates the screenshots above |
+| [`_tools/harness.html`](_tools/harness.html) | Mock of DSH's client that mounts the built bundle |
+| [`docs/DESIGN.md`](docs/DESIGN.md) | Design record: palettes, components, livery, boot, implementation notes |
+| [`docs/HANDOFF.md`](docs/HANDOFF.md) | Everything a fresh session needs |
+| [`preview/`](preview) | Design-stage preview, palette source, screenshots |
+| [`_reference/`](_reference) | Extracted DSH packages and token inventory (research) |
 
 ## Next
 
-Wiring it into DSH means packaging, not more design:
-
-1. **Package skeleton** — `dsh-theme-starfield` with the two-half contract: a host
-   half (`index.js`) hooking `webserver/index-inject` to paint the pre-plugin boot
-   screen, and a client half (`client.js`) registered through
-   `window.__ModuleLoader__.load({ id, factory })`.
-2. **Token mapping** — override all 107 `--dsw-alias-*` tokens onto this palette via
-   `ctx.get('theme').overrideTokens()`, for *both* DSH slots. Light/dark: map DSH's
-   `dark` slot to the star map and its `light` slot to the dataslate, so the theme
-   follows the app's own Appearance setting instead of forcing one.
-3. **Install** — place the package in `$DSH_HOME/profiles/desktop/node_modules/`, add
-   it to `dsh.profile.bundles`, and remove the currently installed
-   `dsh-theme-mls-desktop` entry so the two do not fight over the same tokens.
-   A new bundle only loads after the desktop app restarts.
-4. **Verify in situ** — the `avoid` rects must come from DSH's real transcript element,
-   not this preview's column, before the exclusion can be trusted in the app.
+Install, restart, look at the real app — the open questions are listed in
+[`docs/HANDOFF.md`](docs/HANDOFF.md) §8. The short version: which DSH surfaces
+still paint over the field, whether the boot sweep reads against a real cold
+start, and whether the window should keep the previous theme's shell patch.

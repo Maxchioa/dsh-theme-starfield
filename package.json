@@ -1,0 +1,23 @@
+{
+  "name": "dsh-theme-starfield",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Starfield theme for DeepSeek Harness — the star map on the dark slot, the dataslate on the light slot, a CSS-only livery boot sweep and a star-field layer that never draws a route behind prose.",
+  "type": "commonjs",
+  "scripts": {
+    "build": "node tools/build-package.js",
+    "check": "node tools/build-package.js --check",
+    "test": "node _tools/theme.test.js && node _tools/field.test.js && node _tools/field-app.test.js && node _tools/boot.test.js && node _tools/client.test.js",
+    "test:package": "node tools/build-package.js --check && node _tools/client.test.js",
+    "shots": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/preview-shots.ps1",
+    "install:theme": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/install-theme.ps1",
+    "install:apply": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/install-theme.ps1 -Apply"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "theme",
+    "starfield"
+  ],
+  "license": "MIT"
+}

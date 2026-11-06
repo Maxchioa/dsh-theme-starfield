@@ -213,3 +213,110 @@ The map layer is [`preview/starfield.js`](../preview/starfield.js).
   the brand slots with artwork the deployment owns.
 - **Light mode has no in-game UI reference** beyond the dataslate note, so its
   panel structure is extrapolated rather than observed.
+
+---
+
+# 11. Implementation notes
+
+What the design above cost once it had to become a DSH profile bundle. The
+palette and the components did not change; the *seams* did.
+
+## The frame is transparent
+
+DSH paints its frame and transcript column with `--dsw-alias-bg-base`. This theme
+maps that token to `transparent`, mounts one fixed canvas behind the app, and
+lets the field *be* the page. Everything that must stay readable — cards, menus,
+the sidebar, the composer — keeps an opaque layer token, so the field shows
+through exactly the surfaces the design wanted empty.
+
+The alternative (field as a translucent overlay on top of the UI) was rejected:
+it puts dots over glyphs and needs `mix-blend-mode` to look like light, which is
+a different image from a map behind the interface.
+
+## Cards sit on different sides of the two surfaces
+
+The star map's ground is the sky, so a panel is a step *down* into it
+(`bg-layer-1` = `--sf-hull`). The dataslate's ground is the paper, so a card is a
+plate laid *on top* (`bg-layer-1` = `--sf-hull-raised`, lighter than the paper).
+One ramp for both slots buries every card in the paper — which is what the first
+light render did.
+
+The rail gets its own variable (`--sf-rail`) for the same reason: in dark it is a
+touch darker than the panels, in light a shade below the paper, so the column edge
+reads as a stamped seam rather than a colour change.
+
+## The stencil plate is the brand lockup
+
+The game's panel header is a solid light bar with dark ink and a colour code
+painted on its leading edge, so the brand sits on one: a `--sf-bar` plate with a
+four-bar livery flag flush to its left edge, the whale in brand blue
+(`fill: currentColor` on the shipped `<FishLogo>`, so `color` recolours it) and
+the wordmark in plate ink.
+
+Four bars, not five: on the dark surface the plate is itself light, so a chalk
+segment has nothing to contrast against. The flag is 18px wide to give brass some
+mass.
+
+## Typography is applied by selector, not by token
+
+`--dsw-font-family` feeds both chrome and prose, so pointing it at Bahnschrift
+would condense paragraphs — which the design rejects at 14px. Instead the token
+stays the system UI face, and the display face is applied to chrome by selector:
+`button`, `[role=tab]`, `kbd`, `th`, `h1`–`h6`, and the semantic suffixes DSH's
+hashed class names keep (`label`, `caption`, `badge`, `header`, `toolbar`,
+`count`, `meta`, `brand`). Tracked capitals are narrower still — buttons,
+keycaps, table heads and label/caption/badge classes.
+
+The hashes change between builds; the suffixes do not, so no hash is ever written
+down in the theme.
+
+## The boot screen is the Host's, not the client's
+
+DSH has already painted its own boot card by the time a plugin is fetched, so the
+boot screen can only come from a stylesheet in the served index. The Host writes
+one `<style>` row per index response containing:
+
+- a dark pre-plugin canvas, and DSH's boot card silenced only while it still
+  carries its spinner (a failed plugin load must still show its error);
+- a fixed, opaque curtain in the map's ground colour, retracted when the client
+  sets `html[data-sf-live]` (and by a 6s fallback if the client never arrives);
+- the whale, faded in at 350ms;
+- the sweep: five hard stops in a sheared band, in front of the whale.
+
+**The allocation is baked, not computed in the browser.** Strip weights, band
+width, both travel offsets and the shear angle are drawn on the Host and written
+as literal values, which is what keeps the boot JavaScript-free. Two consequences
+worth remembering:
+
+1. **The stop colours must be literals.** The first version used
+   `var(--sf-livery-1)`; `html::before` is not a descendant of `body`, where the
+   palette lives, so the variable was empty, the `background` declaration was
+   invalid, and the band simply never appeared. A `var()` that resolves to nothing
+   takes the whole declaration with it.
+2. **The sweep only reads while it is on screen.** With 173vw of travel in 1.7s
+   the band crosses the visible frame in roughly half a second; the rest is the
+   off-screen run-up and run-out the earlier tuning deliberately kept short.
+
+**The readiness floor is 1.8s** — the point where the band has finished crossing.
+Above it the app was slow enough that the sweep had already finished on its own;
+below it the flag would cut the signature sweep in half. Either way, a coloured
+band never crosses an app the user can see.
+
+## The exclusion zones are the live DOM
+
+The preview handed the engine one fixed reading column. The package derives the
+rects from the transcript itself — paragraphs, list items, quotes, code blocks,
+table cells, the composer seat and the user bubble — merges touching blocks into
+bands, and re-derives them (throttled, and only when the merged signature
+changes) as the transcript grows. Dots are allowed behind prose; nothing stroked
+is.
+
+## Two rendering bugs the stills caught
+
+- **A hard alpha edge is a band across the page.** The dataslate's white wash was
+  a `fillRect` over 42% of the height, which produced a visible horizontal seam.
+  It is a gradient now.
+- **The plus-grid was invisible.** Its alpha was multiplied twice — a per-mark
+  opacity on top of an already-8%-alpha hairline colour, giving ~0.4% effective.
+  It is drawn from the ink colour with a single alpha now.
+
