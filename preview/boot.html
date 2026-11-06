@@ -61,7 +61,7 @@
     background: #070a10;
     display: grid;
     place-items: center;
-    animation: boot-out 420ms ease-out 1400ms forwards;
+    animation: boot-out 420ms ease-out 1700ms forwards;
     pointer-events: none;
     overflow: hidden;
   }
@@ -88,7 +88,7 @@
     /* fallbacks matter: these are set from script, and an unset var would make
        the transform invalid and flash the band at the left edge */
     transform: translateX(var(--from, -180vw)) skewX(var(--skew, -14deg));
-    animation: sweep 1400ms cubic-bezier(0.4, 0, 0.2, 1) 80ms both;
+    animation: sweep 1700ms cubic-bezier(0.4, 0, 0.2, 1) 80ms both;
     will-change: transform;
   }
 
@@ -193,12 +193,35 @@
       bars[b].style.width = (shares[b] * bandVw).toFixed(3) + "vw";
     }
 
-    // Travel far enough that the sheared band is fully off both edges.
-    var from = -(bandVw + 26);
-    var to = 112 + 26;
+    // Travel budget, in vw. The band only *reads* while it is on screen, so the
+    // off-screen run-up is kept short (60% of the band, plus 18vw of shear
+    // slack) instead of a full band width plus margin. Earlier numbers put
+    // ~40% of the 1400ms in the off-screen run-up, so a 1.4s animation looked
+    // like a 0.6s wipe.
+    var from = -(bandVw * 0.6 + 18);
+    var to = 118; // 100vw + shear slack, so the trailing edge clears the frame
     wipe.style.setProperty("--from", from + "vw");
     wipe.style.setProperty("--to", to + "vw");
-    wipe.style.setProperty("--skew", "skewX(" + skew.toFixed(2) + "deg)");
+    // Store the ANGLE, not the function. The CSS already wraps this in skewX(),
+    // so writing "skewX(…)" here yielded skewX(skewX(…)) — an invalid transform
+    // that dropped to `none` and left the band static at left:0.
+    wipe.style.setProperty("--skew", skew.toFixed(2) + "deg");
+
+    /* --- freeze: pause the REAL animations at time T -----------------------
+       ?still= computes frames in script, which is why it never caught the
+       skewX(skewX()) bug — it replaces the code under test. ?freeze= only
+       offsets animation-delay and pauses, so the shipped keyframes are what
+       gets rendered. Use this one to verify motion. */
+    var freeze = params.get("freeze");
+    if (freeze !== null) {
+      var at = Number(freeze);
+      var style = document.createElement("style");
+      style.textContent =
+        ".wipe{animation-delay:" + (-at) + "ms!important;animation-play-state:paused!important}" +
+        ".boot__mark{animation-delay:" + (350 - at) + "ms!important;animation-play-state:paused!important}" +
+        ".boot{animation-delay:" + (1700 - at) + "ms!important;animation-play-state:paused!important}";
+      document.head.appendChild(style);
+    }
 
     /* --- stills ------------------------------------------------------------ */
     var still = params.get("still");
@@ -209,8 +232,8 @@
     var clamp01 = function (v) { return Math.min(1, Math.max(0, v)); };
     var smooth = function (p) { return p * p * (3 - 2 * p); };
 
-    // 80ms → 1480ms: the band crosses (1.4s — long enough to read the colours).
-    var p = clamp01((t - 80) / 1400);
+    // 80ms → 1780ms: the band crosses.
+    var p = clamp01((t - 80) / 1700);
     var x = from + (to - from) * smooth(p);
     wipe.style.transform = "translateX(" + x.toFixed(2) + "vw) skewX(" + skew.toFixed(2) + "deg)";
 
@@ -220,8 +243,8 @@
     mark.style.opacity = m.toFixed(3);
     mark.style.transform = "translateY(" + (4 * (1 - m)).toFixed(2) + "px)";
 
-    // 1400ms → 1820ms: the plate.
-    var f = clamp01((t - 1400) / 420);
+    // 1700ms → 2120ms: the plate.
+    var f = clamp01((t - 1700) / 420);
     var boot = document.querySelector(".boot");
     boot.style.opacity = (1 - f).toFixed(3);
     if (f >= 1) boot.style.visibility = "hidden";

@@ -147,10 +147,21 @@ livery is equipment marking, the whale is the logo.
 [`preview/boot.html`](../preview/boot.html) — one sheared band of all five livery
 colours crosses the screen once and the boot plate fades out behind it.
 
-- **Timeline** — band 80 → 1480ms, mark 350 → 800ms, plate 1400 → 1820ms. ~1.8s
-  total, and nothing is left on screen afterwards. The first cut ran the crossing
-  in 680ms, which was over before the colours could be read; 1.4s is the slowest
-  that still feels like a wipe rather than a loading screen.
+- **Timeline** — band 80 → 1780ms, mark 350 → 800ms, plate 1700 → 2120ms. ~2.1s
+  total, and nothing is left on screen afterwards.
+- **Animation duration is not perceived duration.** The band only reads while it
+  is on screen, so the off-screen run-up is a cost paid on every play. The first
+  cut ran 1400ms but spent ~40% of it approaching from off-frame, which looked
+  like a 0.6s wipe; travel now starts at 60% of a band width plus 18vw of shear
+  slack, and the duration is 1.7s.
+- **Two bugs worth remembering.** (1) `--skew` held `skewX(…)` while the CSS
+  wrapped it again, producing `skewX(skewX(…))` — an invalid transform that
+  silently dropped to `none`, so the band sat still at `left: 0` and only faded.
+  Variables must hold values, not functions the CSS already applies. (2) The
+  `?still=` capture mode builds its own transform in script, so it cannot catch
+  that class of bug: it replaces the code under test. `?freeze=<ms>` pauses the
+  real keyframes by offsetting `animation-delay` instead, and is the mode to
+  verify motion with.
 - **Strip widths are allocated, not equal.** Each colour draws a weight from
   `[0.70, 1.40]`, the five are normalised to the band, then clamped to
   `[0.12, 0.31]` so no colour collapses or becomes a wall — an equal-fifths band

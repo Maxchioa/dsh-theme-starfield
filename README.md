@@ -6,6 +6,10 @@ plates) and the **dataslate** (light, matte paper, slate ink, printed speck).
 
 > Status: **preview stage.** The visual language, both palettes and the field engine
 > exist and are tested; DSH packaging is the next step — see [Next](#next).
+>
+> **Starting a fresh session?** Read [`docs/HANDOFF.md`](docs/HANDOFF.md) first — it
+> carries the locked decisions, the DSH internals this depends on, the environment
+> traps, and the ordered next steps.
 
 ## Look at it
 

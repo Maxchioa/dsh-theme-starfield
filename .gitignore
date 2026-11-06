@@ -1,0 +1,18 @@
+# Python bytecode from tools/*.py
+__pycache__/
+*.pyc
+
+# Scratch renders from headless captures (preview/_foo.png). Deliberate
+# artifacts — shot-*.png, boot-swipe.png, livery.png, wordmark-study.png —
+# do not match this pattern.
+preview/_*.png
+
+# OS noise
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# Extracted DSH packages. Tracked historically; uncomment + untrack with
+#   git rm -r --cached _reference
+# to keep them local only. See docs/HANDOFF.md §7.
+# _reference/
