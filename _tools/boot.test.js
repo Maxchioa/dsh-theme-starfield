@@ -101,8 +101,15 @@ ok('the band carries no unresolved var()', !/var\(--sf-livery/.test(css));
 
 // The readiness flag must retract both marks, and the fallback must exist.
 ok('readiness hides the band', /html\[data-sf-live\]::before\{[^}]*visibility:hidden/.test(css));
+ok('readiness hides the whale', /html\[data-sf-live\] body::before\{[^}]*visibility:hidden/.test(css));
 ok('readiness fades the curtain', /html\[data-sf-live\]::after\{animation:sf-plate-out 220ms/.test(css));
 ok('a fallback retracts the curtain even with no client', /html::after\{[^}]*animation:sf-plate-out 420ms ease-out 6000ms forwards/.test(css));
+
+// The dark pre-plugin canvas must stop applying once the flag is set: an
+// unscoped !important background would outrank the theme's own ground forever.
+ok('the pre-plugin canvas is scoped to the boot interval',
+  /html:not\(\[data-sf-live\]\)/.test(css) && !/(^|[,{])html,body\{background-color/.test(css),
+  css.slice(0, 200));
 
 // Reduced motion: no band, but the whale and the readiness lift stay.
 ok('reduced motion drops the band', /prefers-reduced-motion:reduce\)\{html::before\{display:none\}/.test(css));

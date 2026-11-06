@@ -171,7 +171,9 @@ global.window = windowStub;
 global.document = document;
 global.MutationObserver = MutationObserver;
 global.performance = { now: () => 250 };
-global.getComputedStyle = () => ({ getPropertyValue: () => '' });
+global.getComputedStyle = () => ({
+  getPropertyValue: (name) => (name === '--sf-paper-1' ? '#0A0E15' : '#EAEEF4'),
+});
 global.matchMedia = windowStub.matchMedia;
 
 /* ------------------------------------------------------ load the real bundle */

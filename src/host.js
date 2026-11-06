@@ -132,9 +132,12 @@ function bootStyle(markUri, random) {
 
   return [
     /* -- 1. the pre-plugin canvas ------------------------------------------ */
+    // Scoped to the interval before the readiness flag: after it, the document
+    // ground belongs to the theme again (and !important here would otherwise
+    // outrank the palette for the life of the page).
     // `background-color` is !important because ui-theme's own boot row, which
-    // renders after this one, paints `body { background-color: #fff }`.
-    'html,body{background-color:' + ground + ' !important}',
+    // renders before this one, paints `body { background-color: #fff }`.
+    'html:not([data-sf-live]),html:not([data-sf-live]) body{background-color:' + ground + ' !important}',
     // No !important: the presenter writes the resolved scheme as an inline
     // style the moment the app is up, and an inline style is what should win.
     ':root{color-scheme:dark}',

@@ -237,6 +237,21 @@ function install(ctx) {
   var refreshTimer = 0;
   var appliedMode = currentMode();
   var appliedSignature = '';
+
+  /**
+   * Paint the document ground from the active palette.
+   *
+   * The frame and the transcript are transparent, so `html` is the colour that
+   * shows if the canvas is ever missing (no 2D context, or a browser that
+   * refuses it). It has to come from `body`: the dark palette lives on the body
+   * element, so the root's own `--sf-paper-1` is always the light one.
+   */
+  function paintDocumentGround() {
+    var paper = getComputedStyle(body).getPropertyValue('--sf-paper-1');
+    paper = paper && paper.trim();
+    if (paper) document.documentElement.style.backgroundColor = paper;
+  }
+
   function scheduleRefresh() {
     window.clearTimeout(refreshTimer);
     refreshTimer = window.setTimeout(function () {
@@ -249,10 +264,12 @@ function install(ctx) {
       if (mode === appliedMode && nextSignature === appliedSignature) return;
       appliedMode = mode;
       appliedSignature = nextSignature;
+      paintDocumentGround();
       controller.setMode(mode);
       controller.refresh();
     }, 220);
   }
+  paintDocumentGround();
 
   if (typeof MutationObserver === 'function') {
     var observer = new MutationObserver(scheduleRefresh);
