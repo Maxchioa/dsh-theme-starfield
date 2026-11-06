@@ -126,6 +126,18 @@ Facts established while packaging (all verified in the shipped code):
    hidden captions, opens maximised). Pristine backup:
    `<install>/resources/app.asar.dsh-theme-marathon.bak`. Those shell changes
    survive this theme's install and are a separate decision.
+9. **Star positions belong to the drift loop, not to a rebuild.** `refresh()`
+   (scroll, transcript growth, Appearance change) re-derives only the exclusion
+   dependent strokes; `buildStars()` runs on first paint and on a canvas size
+   change, and even then it scales the existing sky rather than re-seeding it.
+   Rebuilding the stars on every scroll was the "stars jump on scroll" bug — the
+   regression test watches a build counter, not coordinates, so it holds without
+   animation frames (see DESIGN.md §11).
+10. **A client-only change does not need an app restart.** The module URL carries
+    `?rev=<mtimeMs>/<size>`, so a page reload picks up a rewritten `client.js` —
+    the roster's rev is what the browser caches against. Host-half changes are
+    read per index response too, but anything in the *profile* (bundles list,
+    installed package name) is resolved at startup only.
 
 ## 5. Environment traps (this cost the most time)
 

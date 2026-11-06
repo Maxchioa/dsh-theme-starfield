@@ -114,6 +114,9 @@ function segmentHitsRect(x1, y1, x2, y2, rect) {
 
 function makeWindow() {
   const listeners = new Map();
+  // The engine debounces resize; the test keeps the callbacks so it can drive a
+  // real resize instead of reaching inside.
+  const pending = [];
   const win = {
     innerWidth: 1600,
     innerHeight: 1000,
@@ -121,15 +124,28 @@ function makeWindow() {
     requestAnimationFrame: () => 1,
     cancelAnimationFrame() {},
     setTimeout: (fn) => {
-      // The engine debounces resize; the test never needs the callback.
-      void fn;
-      return 0;
+      pending.push(fn);
+      return pending.length;
     },
-    clearTimeout() {},
+    clearTimeout(id) {
+      if (id) pending[id - 1] = null;
+    },
+    flushTimers() {
+      for (let i = 0; i < pending.length; i += 1) {
+        const fn = pending[i];
+        pending[i] = null;
+        if (typeof fn === 'function') fn();
+      }
+      pending.length = 0;
+    },
     addEventListener(type, fn) {
       listeners.set(type, fn);
     },
     removeEventListener() {},
+    emit(type) {
+      const fn = listeners.get(type);
+      if (typeof fn === 'function') fn();
+    },
     matchMedia: () => ({ matches: false, addEventListener() {}, removeEventListener() {} }),
   };
   win.window = win;
@@ -144,14 +160,15 @@ function check(name, condition, detail) {
 
 /* ------------------------------------------------------------ dark surface */
 
-function run(mode) {
+function run(mode, size) {
   const ctxStub = makeContext();
+  const canvasSize = { width: 1600, height: 1000 };
   const canvas = {
     width: 0,
     height: 0,
     style: {},
     getContext: () => ctxStub,
-    getBoundingClientRect: () => ({ width: 1600, height: 1000 }),
+    getBoundingClientRect: () => ({ width: canvasSize.width, height: canvasSize.height }),
     remove() {},
   };
   const win = makeWindow();
@@ -179,7 +196,7 @@ function run(mode) {
   ctxStub._skys.length = 0;
   field.refresh();
 
-  return { field, ctxStub };
+  return { field, ctxStub, canvas: canvasSize, win };
 }
 
 const dark = run('dark');
@@ -210,6 +227,89 @@ const stats = dark.field.stats();
 check('dark: stars are placed', stats.stars > 50, String(stats.stars));
 check('dark: waypoints exist', stats.rings >= 1, String(stats.rings));
 check('dark: anchors and dots are filled, not stroked', dark.ctxStub._fills.length > 50, String(dark.ctxStub._fills.length));
+
+/* ------------------------------------------------- scroll must not reset sky */
+
+// The bug: refresh() rebuilt the stars from their seed, so every scroll (which
+// re-derives the exclusion rects) teleported the sky back to its start. Drift is
+// what makes the jump visible in the app, but the honest invariant is stronger
+// and doesn't need drift at all: a refresh must not re-place the sky.
+const before = dark.field.positions();
+check('dark: the engine exposes star positions for this test', before.length === stats.stars);
+const buildsBefore = dark.field.stats().skyBuilds;
+check('dark: the sky has been placed exactly once so far', buildsBefore === 1, String(buildsBefore));
+
+// A scroll moves the prose, so the rects the engine sees move with it.
+AVOID.length = 0;
+AVOID.push(
+  { left: 520, top: 40, width: 720, height: 180 },
+  { left: 520, top: 250, width: 720, height: 240 },
+  { left: 520, top: 520, width: 720, height: 120 },
+  COMPOSER
+);
+// Only the strokes this rebuild draws are under test.
+dark.ctxStub._strokes.length = 0;
+dark.field.refresh();
+const after = dark.field.positions();
+const buildsAfter = dark.field.stats().skyBuilds;
+
+check('dark: a scroll refresh does not re-place the sky', buildsAfter === buildsBefore,
+  buildsBefore + ' -> ' + buildsAfter);
+check('dark: scrolling leaves the routes drawn', dark.ctxStub._strokes.length > 0,
+  String(dark.ctxStub._strokes.length));
+
+/* ------------------------------------------------- resize carries, not resets */
+
+// A real resize *does* re-place the sky (the area changed), but it must carry the
+// existing stars across the new size rather than teleport them to their seeded
+// positions: stretching is a layout change, re-seeding is a bug the user sees.
+const beforeResize = dark.field.positions();
+const resizeBuildsBefore = dark.field.stats().skyBuilds;
+dark.canvas.width = 1200;
+dark.canvas.height = 800;
+dark.win.emit('resize');
+dark.win.flushTimers();
+const afterResize = dark.field.positions();
+
+check('resize re-places the sky exactly once', dark.field.stats().skyBuilds === resizeBuildsBefore + 1,
+  resizeBuildsBefore + ' -> ' + dark.field.stats().skyBuilds);
+const sx = 1200 / 1600;
+const sy = 800 / 1000;
+const kept = Math.min(beforeResize.length, afterResize.length);
+const offScale = beforeResize.slice(0, kept).filter((p, i) => {
+  const q = afterResize[i];
+  return !q || Math.abs(q.x - p.x * sx) > 0.5 || Math.abs(q.y - p.y * sy) > 0.5;
+});
+check('resize scales the existing sky instead of re-seeding it', offScale.length === 0,
+  offScale.length + '/' + kept + ' stars are not the scaled originals');
+check('resize trims the population to the smaller area',
+  afterResize.length < beforeResize.length && afterResize.length >= 60,
+  beforeResize.length + ' -> ' + afterResize.length);
+check('resize keeps every star on the canvas',
+  afterResize.every((p) => p.x >= -4 && p.x <= 1204 && p.y >= 0 && p.y <= 808),
+  JSON.stringify(afterResize.slice(0, 3)));
+
+const moved = before.filter((p, i) => !after[i] || Math.abs(p.x - after[i].x) > 1e-6 || Math.abs(p.y - after[i].y) > 1e-6);
+check('dark: scrolling keeps every star where it was', moved.length === 0,
+  moved.length + '/' + before.length + ' stars jumped');
+check('dark: the star count is unchanged', after.length === before.length);
+
+// ...and the exclusion still holds against the moved rects.
+let scrollCrossings = 0;
+for (const stroke of dark.ctxStub._strokes) {
+  for (let i = 1; i < stroke.points.length; i += 1) {
+    const a = stroke.points[i - 1];
+    const b = stroke.points[i];
+    for (const rect of AVOID) {
+      if (segmentHitsRect(a.x, a.y, b.x, b.y, rect)) {
+        scrollCrossings += 1;
+        i = stroke.points.length;
+        break;
+      }
+    }
+  }
+}
+check('dark: the rebuilt routes still clear the moved prose', scrollCrossings === 0, String(scrollCrossings));
 
 /* ----------------------------------------------------------- light surface */
 

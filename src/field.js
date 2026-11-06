@@ -141,6 +141,13 @@ function createStarfield(canvas, options) {
     lastTime: 0,
     started: false,
     paused: false,
+    // How many times the sky has been re-placed. A rebuild is only legal on a
+    // size change; the count is what the scroll regression test watches.
+    skyBuilds: 0,
+    // Size the sky was last placed for, so a resize can carry it across instead
+    // of re-placing it.
+    prevWidth: 0,
+    prevHeight: 0,
   };
   var colors = {};
 
@@ -193,36 +200,106 @@ function createStarfield(canvas, options) {
 
   /* ------------------------------------------------------------------ build */
 
-  function buildStars() {
-    var rng = createRng(opts.seed);
-    var count = clamp(
+  /** How many stars the current canvas calls for. */
+  function starTarget() {
+    return clamp(
       Math.round((state.width * state.height) / opts.starDensity),
       opts.minStars,
       opts.maxStars
     );
+  }
+
+  /**
+   * One star's traits. `depth` 0 = far (small, dim, barely moves), 1 = near.
+   * @param rng - seeded generator.
+   * @param hero - an anchor star: bright, larger, at the near end of the depth range.
+   * @param x - position in canvas space.
+   * @param y - position in canvas space.
+   */
+  function makeStar(rng, hero, x, y) {
+    var depth = hero ? 0.96 + rng() * 0.04 : Math.pow(rng(), 2.0);
+    return {
+      x: x,
+      y: y,
+      depth: depth,
+      // Crisp, small dots: the map has no bloom, so the radius tops out just over
+      // 1px for ordinary stars and ~2px for anchors.
+      radius: hero ? 1.55 + rng() * 0.55 : 0.42 + depth * 0.95,
+      base: hero ? 0.92 : 0.18 + depth * 0.6,
+      tint: !hero && rng() < 0.055,
+      phase: rng() * TAU,
+      twinkle: 0.1 + rng() * 0.26,
+      speed: (0.5 + depth * 1.9) * opts.drift,
+    };
+  }
+
+  /**
+   * Place the sky. The only step that resets star positions, so it runs on the
+   * first paint and on a size change — and even then it *carries* the existing
+   * sky across the resize instead of re-placing it, because a window resize
+   * throwing the whole field back to its start reads as a bug, which it was.
+   *
+   * The drift loop owns star positions after the first paint.
+   */
+  function buildStars() {
+    var count = starTarget();
     var heroes = Math.min(8, Math.round(count * 0.03));
-    var stars = [];
-    for (var i = 0; i < count; i += 1) {
-      var hero = i < heroes;
-      // depth 0 = far (small, dim, barely moves) → 1 = near.
-      var depth = hero ? 0.96 + rng() * 0.04 : Math.pow(rng(), 2.0);
-      stars.push({
-        x: rng() * state.width,
-        y: rng() * state.height,
-        depth: depth,
-        // Crisp, small dots: the map has no bloom, so the radius tops out just
-        // over 1px for ordinary stars and ~2px for anchors.
-        radius: hero ? 1.55 + rng() * 0.55 : 0.42 + depth * 0.95,
-        base: hero ? 0.92 : 0.18 + depth * 0.6,
-        tint: !hero && rng() < 0.055,
-        phase: rng() * TAU,
-        twinkle: 0.1 + rng() * 0.26,
-        speed: (0.5 + depth * 1.9) * opts.drift,
-      });
+    var stars = state.stars;
+    var prevW = state.prevWidth;
+    var prevH = state.prevHeight;
+
+    if (stars.length && prevW > 0 && prevH > 0) {
+      // Carry the sky across the size change: scale what is on screen, then
+      // adjust the population to the new area.
+      var sx = state.width / prevW;
+      var sy = state.height / prevH;
+      var i;
+      for (i = 0; i < stars.length; i += 1) {
+        stars[i].x *= sx;
+        stars[i].y *= sy;
+      }
+      if (stars.length > count) stars.length = count;
+      if (stars.length < count) {
+        // Appended stars are ordinary ones; the seeded layout still owns the
+        // original set, so a reload and a resize converge on the same identity.
+        var appendRng = createRng(opts.seed + stars.length * 2654435761);
+        while (stars.length < count) {
+          stars.push(makeStar(appendRng, false, appendRng() * state.width, appendRng() * state.height));
+        }
+      }
+      state.stars = stars;
+    } else {
+      var rng = createRng(opts.seed);
+      stars = [];
+      for (var k = 0; k < count; k += 1) {
+        stars.push(makeStar(rng, k < heroes, rng() * state.width, rng() * state.height));
+      }
+      state.stars = stars;
     }
-    state.stars = stars;
+
+    state.prevWidth = state.width;
+    state.prevHeight = state.height;
+    state.skyBuilds += 1;
+    buildStrokes();
+  }
+
+  /**
+   * Everything that has to be re-derived when the exclusion zones move: the
+   * waypoint rings, the routes and the plus-grid.
+   *
+   * This is the cheap half of a rebuild, and the one that scroll belongs to.
+   * Calling `buildStars()` here instead was the bug behind "the stars jump back
+   * to their start every time I scroll": the stars are rebuilt from the same
+   * seed, so every rebuild teleported them to their seeded positions and threw
+   * away the drift the loop had accumulated.
+   */
+  function buildStrokes() {
+    // A fixed seed of its own, so a rebuild produces the same layout for the
+    // same sky rather than reshuffling rings and chains on every scroll tick.
+    var rng = createRng(opts.seed + 7);
     buildRings(rng);
     buildEdges(rng);
+    buildCrosshairs();
   }
 
   /** Open rings around a few anchors — the map's waypoint selection. */
@@ -354,8 +431,7 @@ function createStarfield(canvas, options) {
     canvas.height = Math.round(height * dpr);
     ctx2d.setTransform(dpr, 0, 0, dpr, 0, 0);
     readColors();
-    buildStars();
-    buildCrosshairs();
+    buildStars(); // the sky is re-placed only when its canvas changed size
     if (prefersReduced()) draw(0, true);
     return true;
   }
@@ -616,11 +692,17 @@ function createStarfield(canvas, options) {
       }
       canvas.remove();
     },
-    /** Rebuild after the layout or the theme changed. */
+    /**
+     * Re-derive the exclusion-dependent geometry after the layout moved (scroll,
+     * transcript growth, a panel opening).
+     *
+     * Deliberately does *not* touch the stars: their positions belong to the
+     * drift loop, and rebuilding them here made the sky snap back on every
+     * scroll.
+     */
     refresh: function () {
       readColors();
-      buildStars();
-      buildCrosshairs();
+      buildStrokes();
       draw(0, prefersReduced());
     },
     /**
@@ -634,7 +716,21 @@ function createStarfield(canvas, options) {
     },
     /** Exposed for the invariant test. */
     stats: function () {
-      return { stars: state.stars.length, edges: state.edges.length, rings: state.rings.length };
+      return {
+        stars: state.stars.length,
+        edges: state.edges.length,
+        rings: state.rings.length,
+        skyBuilds: state.skyBuilds,
+      };
+    },
+    /**
+     * Star positions, for the regression test that scroll must not reset them.
+     * A copy: a test must not be able to move the sky.
+     */
+    positions: function () {
+      return state.stars.map(function (star) {
+        return { x: star.x, y: star.y };
+      });
     },
   };
 }

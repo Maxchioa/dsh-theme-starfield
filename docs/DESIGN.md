@@ -320,3 +320,38 @@ is.
   opacity on top of an already-8%-alpha hairline colour, giving ~0.4% effective.
   It is drawn from the ink colour with a single alpha now.
 
+## The sky is not rebuilt when the layout moves
+
+Found in the running app, not in a still: **the stars jumped back to their start
+positions on every scroll.**
+
+The cause was a one-word confusion of two different rebuilds. The client
+re-derives its exclusion zones when the transcript moves (scroll, streaming,
+panels opening), and the engine's `refresh()` rebuilt *everything* — including
+`buildStars()`. The stars are generated from a fixed seed, so every rebuild
+teleported them to the seeded layout and discarded whatever drift the animation
+loop had accumulated. Scrolling looked like a page-flip of the sky.
+
+The fix splits the two, and the split is the rule now:
+
+| Step | Owns | Runs when |
+| --- | --- | --- |
+| `buildStars()` | star **positions** | first paint, and a genuine canvas size change |
+| `buildStrokes()` | rings, routes, plus-grid | any time the exclusion zones move |
+
+Two properties follow, both asserted in
+[`_tools/field-app.test.js`](../_tools/field-app.test.js):
+
+1. **`refresh()` may never re-place the sky.** The engine counts sky builds, and
+   the test fails if a scroll-driven refresh increments the count — a drift-free
+   assertion, so it does not depend on animation frames having run.
+2. **A resize carries the sky across the new size.** Positions are scaled to the
+   new canvas and the population is trimmed or extended to the new area, so
+   widening the window stretches the field instead of dealing a new one. Only the
+   initial paint lays out a fresh sky from the seed.
+
+The strokes also got a seed of their own (`seed + 7`) in the same change. They
+used to be drawn from the star generator's sequence, which meant the route set
+changed shape whenever the star count did; now the same sky always produces the
+same routes.
+

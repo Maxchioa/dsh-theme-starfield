@@ -64,7 +64,7 @@ node tools/build-package.js --check # is package/ current with src/?
 | --- | --- |
 | [`_tools/theme.test.js`](_tools/theme.test.js) | every alias is mapped, palette parity with `preview/tokens.css`, CSS balance |
 | [`_tools/field.test.js`](_tools/field.test.js) | the preview engine's "no stroke over the reading column" invariant |
-| [`_tools/field-app.test.js`](_tools/field-app.test.js) | the shipped engine paints the sky and crosses no prose or composer rect |
+| [`_tools/field-app.test.js`](_tools/field-app.test.js) | the shipped engine: paints the sky, crosses no prose or composer rect, keeps the sky still when the layout moves |
 | [`_tools/boot.test.js`](_tools/boot.test.js) | allocation bounds, band geometry, readiness cut, two regression guards |
 | [`_tools/client.test.js`](_tools/client.test.js) | `package/client.js` installs, tears down and does not double-mount |
 
